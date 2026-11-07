@@ -32,4 +32,6 @@ dependencies {
     api(libs.androidx.compose.foundation)
     api(libs.androidx.compose.ui.tooling.preview)
     api(libs.androidx.tv.material)
+    api(libs.androidx.tv.foundation)
+    api(libs.androidx.compose.material3)
 }
