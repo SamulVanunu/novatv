@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">NovaTV</string>
+    <string name="home_title">NovaTV</string>
+    <string name="home_subtitle">Kaynak eklemek için Ayarlar</string>
+    <string name="open_player">Oynatıcıyı aç</string>
+</resources>
