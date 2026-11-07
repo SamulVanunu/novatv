@@ -32,6 +32,9 @@ data class ChannelFilter(
 interface ChannelRepository {
     fun groups(): Flow<List<GroupItem>>
     fun channels(filter: ChannelFilter): Flow<PagingData<Channel>>
+
+    /** Aktif profilin favori kanal kimlikleri; satırlardaki yıldız için. */
+    fun favoriteChannelIds(): Flow<Set<Long>>
     suspend fun byId(id: Long): Channel?
     suspend fun toggleFavorite(channel: Channel)
     suspend fun hideChannel(channel: Channel)
@@ -93,6 +96,12 @@ class RoomChannelRepository(
                     }.flow.map { page -> page.map { it.toModel() } }
                 }
             }
+
+    override fun favoriteChannelIds(): Flow<Set<Long>> =
+        preferenceStore.activeProfileId.flatMapLatest { profileId ->
+            db.userDataDao().observeFavoriteIds(profileId, ItemType.CHANNEL.name)
+                .map { ids -> ids.toSet() }
+        }
 
     override suspend fun byId(id: Long): Channel? = db.channelDao().byId(id)?.toModel()
 

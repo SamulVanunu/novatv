@@ -13,4 +13,4 @@ dependencyResolutionManagement {
     }
 }
 rootProject.name = "NovaTV"
-include(":app", ":ui", ":core:model", ":core:database", ":core:settings", ":core:network", ":core:source", ":core:source-m3u", ":core:source-xstream", ":core:source-stalker", ":core:sync", ":feature:playlists")
+include(":app", ":ui", ":core:model", ":core:database", ":core:settings", ":core:network", ":core:source", ":core:source-m3u", ":core:source-xstream", ":core:source-stalker", ":core:sync", ":feature:playlists", ":feature:live")

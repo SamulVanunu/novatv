@@ -1,5 +1,6 @@
 package dev.anon.novatv.core.sync
 
+import androidx.paging.PagingSource
 import androidx.paging.testing.asSnapshot
 import dev.anon.novatv.core.database.NovaDatabase
 import dev.anon.novatv.core.database.entity.HiddenChannelEntity
@@ -119,6 +120,39 @@ class ChannelRepositoryTest {
         repository.recordWatch(channel)
 
         assertEquals("TRT 1", repository.lastChannel()?.name)
+    }
+
+    @Test
+    fun twentyThousandChannelsFirstPageIsUnder300ms() = runTest {
+        seedPlaylist(db)
+        val items = (1..20_000).map { index ->
+            channelEntity(
+                remoteId = "r$index",
+                name = if (index % 10 == 0) "TRT $index" else "Kanal $index",
+                group = "G${index % 50}",
+            )
+        }
+        db.channelDao().replaceForPlaylist(1, 1, items)
+        assertEquals(20_000, db.channelDao().countByPlaylist(1))
+
+        suspend fun loadPage() = db.channelDao()
+            .paging(
+                playlistIds = listOf(1L),
+                group = null,
+                q = SearchText.normalize("trt"),
+                favoritesOnly = false,
+                profileId = 1L,
+            )
+            .load(PagingSource.LoadParams.Refresh(key = null, loadSize = 60, placeholdersEnabled = false))
+
+        check(loadPage() is PagingSource.LoadResult.Page) { "ısınma turu başarısız" }
+
+        val startedAt = System.nanoTime()
+        val page = loadPage() as PagingSource.LoadResult.Page
+        val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+
+        assertEquals(60, page.data.size)
+        assertTrue("ilk sayfa ${elapsedMs}ms sürdü", elapsedMs < 300)
     }
 
     private fun channelEntity(
