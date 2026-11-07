@@ -139,7 +139,11 @@ class PlaybackController(private val context: Context) {
     private var tunneling = Build.VERSION.SDK_INT >= 29 && isTelevision()
     private var bufferMs = DEFAULT_BUFFER_MS
 
-    private var player: ExoPlayer = buildPlayer()
+    private var exoPlayer: ExoPlayer = buildPlayer()
+
+    /** UI'ın `PlayerView`e bağlayacağı güncel oynatıcı. */
+    val player: Player
+        get() = exoPlayer
 
     /** Yalnızca testlerin hazırlama sayısını görmesi için. */
     internal var prepareCount = 0
@@ -168,8 +172,8 @@ class PlaybackController(private val context: Context) {
     }
 
     init {
-        player.addListener(listener)
-        player.addAnalyticsListener(EventLogger())
+        exoPlayer.addListener(listener)
+        exoPlayer.addAnalyticsListener(EventLogger())
     }
 
     fun prepare(url: String, headers: Map<String, String> = emptyMap(), startPositionMs: Long = 0) {
@@ -177,35 +181,35 @@ class PlaybackController(private val context: Context) {
         currentHeaders = headers
         prepareCount += 1
         _state.value = PlaybackState.Buffering
-        player.setMediaSource(createMediaSource(url, headers), startPositionMs.coerceAtLeast(0))
-        player.prepare()
-        player.playWhenReady = true
+        exoPlayer.setMediaSource(createMediaSource(url, headers), startPositionMs.coerceAtLeast(0))
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = true
     }
 
     fun play() {
-        player.play()
+        exoPlayer.play()
     }
 
     fun pause() {
-        player.pause()
+        exoPlayer.pause()
     }
 
     fun seekTo(positionMs: Long) {
-        player.seekTo(positionMs.coerceAtLeast(0))
+        exoPlayer.seekTo(positionMs.coerceAtLeast(0))
         updateCanSeekBack()
     }
 
     fun seekBack(ms: Long) {
         if (!_canSeekBack.value) return
-        val target = (player.currentPosition - ms).coerceAtLeast(0)
-        player.seekTo(target)
+        val target = (exoPlayer.currentPosition - ms).coerceAtLeast(0)
+        exoPlayer.seekTo(target)
         updateCanSeekBack()
     }
 
     fun selectAudio(id: String) = selectTrack(C.TRACK_TYPE_AUDIO, id)
 
     fun selectSubtitle(id: String?) {
-        val builder = player.trackSelectionParameters.buildUpon()
+        val builder = exoPlayer.trackSelectionParameters.buildUpon()
         builder.clearOverridesOfType(C.TRACK_TYPE_TEXT)
         if (id == null) {
             builder.setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
@@ -216,7 +220,7 @@ class PlaybackController(private val context: Context) {
                 TrackSelectionOverride(resolved.group.mediaTrackGroup, listOf(resolved.trackIndex)),
             )
         }
-        player.trackSelectionParameters = builder.build()
+        exoPlayer.trackSelectionParameters = builder.build()
     }
 
     fun setAspect(aspect: VideoAspect) {
@@ -247,8 +251,8 @@ class PlaybackController(private val context: Context) {
     }
 
     fun release() {
-        player.removeListener(listener)
-        player.release()
+        exoPlayer.removeListener(listener)
+        exoPlayer.release()
         _state.value = PlaybackState.Idle
     }
 
@@ -268,28 +272,28 @@ class PlaybackController(private val context: Context) {
         val url = currentUrl
         if (url == null) {
             // Henüz kaynak yokken ayar değişti: yalnızca bir sonraki prepare için sakla.
-            player.removeListener(listener)
-            player.release()
-            player = buildPlayer()
+            exoPlayer.removeListener(listener)
+            exoPlayer.release()
+            exoPlayer = buildPlayer()
             return
         }
-        val position = player.currentPosition
-        val playWhenReady = player.playWhenReady
-        player.removeListener(listener)
-        player.release()
-        player = buildPlayer()
+        val position = exoPlayer.currentPosition
+        val playWhenReady = exoPlayer.playWhenReady
+        exoPlayer.removeListener(listener)
+        exoPlayer.release()
+        exoPlayer = buildPlayer()
         prepareCount += 1
         _state.value = PlaybackState.Buffering
-        player.setMediaSource(createMediaSource(url, currentHeaders), position)
-        player.prepare()
-        player.playWhenReady = playWhenReady
+        exoPlayer.setMediaSource(createMediaSource(url, currentHeaders), position)
+        exoPlayer.prepare()
+        exoPlayer.playWhenReady = playWhenReady
     }
 
     private fun updateState() {
         val next = when {
-            player.playerError != null -> _state.value
-            player.playbackState == Player.STATE_BUFFERING -> PlaybackState.Buffering
-            player.playbackState == Player.STATE_READY -> PlaybackState.Playing
+            exoPlayer.playerError != null -> _state.value
+            exoPlayer.playbackState == Player.STATE_BUFFERING -> PlaybackState.Buffering
+            exoPlayer.playbackState == Player.STATE_READY -> PlaybackState.Playing
             else -> PlaybackState.Idle
         }
         _state.value = next
@@ -297,14 +301,14 @@ class PlaybackController(private val context: Context) {
     }
 
     private fun updateCanSeekBack() {
-        if (!player.isCurrentMediaItemSeekable || player.currentTimeline.isEmpty) {
+        if (!exoPlayer.isCurrentMediaItemSeekable || exoPlayer.currentTimeline.isEmpty) {
             _canSeekBack.value = false
             return
         }
         val window = Timeline.Window()
-        player.currentTimeline.getWindow(player.currentMediaItemIndex, window)
+        exoPlayer.currentTimeline.getWindow(exoPlayer.currentMediaItemIndex, window)
         // Canlı yayında geri sarma, pencere en az 60 s ise anlamlı; VOD'da her zaman.
-        _canSeekBack.value = !window.isDynamic || player.currentPosition >= SEEK_BACK_WINDOW_MS
+        _canSeekBack.value = !window.isDynamic || exoPlayer.currentPosition >= SEEK_BACK_WINDOW_MS
     }
 
     private fun refreshTracks(tracks: Tracks) {
@@ -334,13 +338,13 @@ class PlaybackController(private val context: Context) {
 
     private fun selectTrack(type: Int, id: String) {
         val resolved = resolveTrack(type, id) ?: return
-        val builder = player.trackSelectionParameters.buildUpon()
+        val builder = exoPlayer.trackSelectionParameters.buildUpon()
         builder.clearOverridesOfType(type)
         builder.setTrackTypeDisabled(type, false)
         builder.setOverrideForType(
             TrackSelectionOverride(resolved.group.mediaTrackGroup, listOf(resolved.trackIndex)),
         )
-        player.trackSelectionParameters = builder.build()
+        exoPlayer.trackSelectionParameters = builder.build()
     }
 
     private fun resolveTrack(type: Int, id: String): ResolvedTrack? {

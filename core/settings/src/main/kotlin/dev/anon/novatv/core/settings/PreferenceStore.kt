@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -27,10 +28,18 @@ class PreferenceStore(private val dataStore: DataStore<Preferences>) {
         dataStore.edit { it[LIVE_GRID] = grid }
     }
 
+    /** Oynatıcı tamponu (saniye): 10 / 30 / 60. */
+    val playerBufferSeconds: Flow<Int> = dataStore.data.map { it[PLAYER_BUFFER_SECONDS] ?: 30 }
+
+    suspend fun setPlayerBufferSeconds(seconds: Int) {
+        dataStore.edit { it[PLAYER_BUFFER_SECONDS] = seconds }
+    }
+
     companion object {
         const val DEFAULT_PROFILE_ID = 1L
         private val ACTIVE_PROFILE = longPreferencesKey("active_profile_id")
         private val LIVE_GRID = booleanPreferencesKey("live_grid")
+        private val PLAYER_BUFFER_SECONDS = intPreferencesKey("player_buffer_seconds")
 
         fun create(context: Context): PreferenceStore =
             PreferenceStore(context.applicationContext.novaPreferences)
