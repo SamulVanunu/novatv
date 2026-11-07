@@ -42,6 +42,22 @@ abstract class ChannelDao {
         profileId: Long,
     ): PagingSource<Int, ChannelEntity>
 
+    @Query(
+        """
+        SELECT groupName AS name, COUNT(*) AS count FROM channel
+        WHERE playlistId IN (:playlistIds)
+          AND id NOT IN (SELECT channelId FROM hidden_channel WHERE profileId = :profileId)
+          AND NOT EXISTS (
+              SELECT 1 FROM hidden_group hg
+              WHERE hg.profileId = :profileId
+                AND hg.playlistId = channel.playlistId
+                AND hg.groupName = channel.groupName)
+        GROUP BY groupName
+        ORDER BY groupName
+        """,
+    )
+    abstract fun observeGroupCounts(playlistIds: List<Long>, profileId: Long): Flow<List<GroupCount>>
+
     @Query("SELECT * FROM channel WHERE id = :id")
     abstract suspend fun byId(id: Long): ChannelEntity?
 
@@ -78,3 +94,5 @@ abstract class ChannelDao {
         deleteStale(playlistId, token)
     }
 }
+
+data class GroupCount(val name: String, val count: Int)
