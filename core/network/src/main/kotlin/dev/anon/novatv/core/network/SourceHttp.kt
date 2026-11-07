@@ -28,11 +28,17 @@ class SourceHttp(
                             response.code in 500..599 ->
                                 lastError = SourceNetworkException("Sunucu hatası (HTTP ${response.code})")
                             else ->
-                                throw SourceNetworkException("İstek başarısız (HTTP ${response.code})")
+                                throw SourceNetworkException(
+                                    "İstek başarısız (HTTP ${response.code})",
+                                    retryable = false,
+                                )
                         }
                     }
                 } catch (e: SourceAuthException) {
                     throw e
+                } catch (e: SourceNetworkException) {
+                    if (!e.retryable) throw e
+                    lastError = e
                 } catch (e: IOException) {
                     lastError = e
                 }

@@ -1,0 +1,8 @@
+{
+  "js": {
+    "total_items": 1,
+    "data": [
+      {"id": "900", "name": "Kış Uykusu", "o_name": "Kış Uykusu", "year": "2014", "rating_imdb": "8.1", "screenshot_uri": "http://poster/kis.jpg", "description": "Bir otel işletmecisi.", "genres_str": "Dram, Komedi"}
+    ]
+  }
+}

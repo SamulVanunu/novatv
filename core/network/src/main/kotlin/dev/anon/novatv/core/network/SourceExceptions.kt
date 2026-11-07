@@ -4,6 +4,10 @@ import java.io.IOException
 
 class SourceAuthException(message: String) : IOException(message)
 
-class SourceNetworkException(message: String, cause: Throwable? = null) : IOException(message, cause)
+class SourceNetworkException(
+    message: String,
+    cause: Throwable? = null,
+    val retryable: Boolean = true,
+) : IOException(message, cause)
 
 class SourceProtocolException(message: String, cause: Throwable? = null) : IOException(message, cause)

@@ -1,0 +1,9 @@
+{
+  "js": {
+    "total_items": 2,
+    "data": [
+      {"id": "101", "name": "TRT 1", "tv_genre_id": "1", "logo": "http://logo/trt1.png", "cmd": "ffrt http://x/101"},
+      {"id": "102", "name": "beIN Sports 1", "tv_genre_id": "2", "logo": "http://logo/bein1.png", "cmd": "ffrt http://x/102"}
+    ]
+  }
+}
