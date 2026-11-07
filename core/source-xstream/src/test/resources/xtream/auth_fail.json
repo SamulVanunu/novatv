@@ -1,0 +1,11 @@
+{
+  "user_info": {
+    "username": "demo",
+    "password": "demo",
+    "message": "Account expired",
+    "auth": 0,
+    "status": "Expired",
+    "exp_date": "1600000000",
+    "max_connections": "1"
+  }
+}

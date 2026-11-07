@@ -1,0 +1,20 @@
+[
+  {
+    "num": 1,
+    "name": "Bir Başkadır",
+    "series_id": 77,
+    "cover": "http://poster/bb.jpg",
+    "plot": "İstanbul'da kesişen hayatlar.",
+    "cast": "Oyuncu A",
+    "director": "Yönetmen B",
+    "genre": "Dram",
+    "releaseDate": "2020-11-20",
+    "last_modified": "1600000000",
+    "rating": "8.4",
+    "rating_5based": 4.2,
+    "backdrop_path": ["http://poster/bb-back.jpg"],
+    "youtube_trailer": "",
+    "episode_run_time": "45",
+    "category_id": "6"
+  }
+]

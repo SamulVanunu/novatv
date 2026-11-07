@@ -1,0 +1,20 @@
+{
+  "seasons": [
+    {"air_date": "2020-11-20", "episode_count": 2, "id": 1, "name": "1. Sezon", "overview": "", "season_number": 1, "cover": "http://poster/s1.jpg", "cover_big": "http://poster/s1b.jpg"}
+  ],
+  "info": {
+    "name": "Bir Başkadır",
+    "cover": "http://poster/bb.jpg",
+    "plot": "İstanbul'da kesişen hayatlar.",
+    "genre": "Dram",
+    "releaseDate": "2020-11-20",
+    "rating": "8.4",
+    "backdrop_path": ["http://poster/bb-back.jpg"]
+  },
+  "episodes": {
+    "1": [
+      {"id": "1001", "episode_num": 1, "title": "Bölüm 1", "container_extension": "mkv", "info": {"movie_image": "http://still/1.jpg", "plot": "Başlangıç", "duration_secs": 2700, "duration": "00:45:00", "rating": 7.9, "season": 1}, "custom_sid": "", "added": "1600000000", "season": 1, "direct_source": ""},
+      {"id": 1002, "episode_num": "2", "title": "Bölüm 2", "container_extension": "mkv", "info": {"movie_image": "http://still/2.jpg", "plot": "Devam", "duration_secs": "2700", "duration": "00:45:00", "rating": "8.1", "season": "1"}, "custom_sid": "", "added": "1600000000", "season": "1", "direct_source": ""}
+    ]
+  }
+}
