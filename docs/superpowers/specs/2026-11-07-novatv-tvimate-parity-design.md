@@ -118,6 +118,7 @@ Kural: `feature → core`, `core → core`. `feature` bir `feature`'ı import et
 | `:core:source-xstream` | source | Xtream API |
 | `:core:source-m3u` | source | M3U + XMLTV URL |
 | `:core:source-stalker` | source | Stalker Portal |
+| `:core:sync` | model, database, source, settings | Playlist/Channel depoları, senkron motoru, WorkManager |
 | `:core:epg` | model, database, network | XMLTV parser, senkron |
 | `:core:player` | model | Media3 sarmalayıcı, parça/en-boy, PiP |
 | `:core:recording` | model, database, network, player | Kayıt servisi, planlayıcı |
@@ -153,15 +154,16 @@ Yan etkiler `suspend`; UI olayları `sealed interface` ile. Uzun listeler Paging
 ## 4. Veri modeli
 
 ```
-Playlist(id, type, name, baseUrl, username, password, epgUrl, userAgent,
+Playlist(id, type, name, baseUrl, username, epgUrl, userAgent,
          isActive, sortOrder, lastSyncAt, lastSyncStatus, syncIntervalHours)
+Credentials(playlistId, username, password)   // Keystore'lu ayrı depo, Room'da düz metin yok
 Profile(id, name, pinHash, maxRating, isKids, createdAt)
 Favorite(profileId, itemType, itemId)         // kanal / film / dizi
 HiddenItem(profileId, itemType, key)          // grup veya kanal
 WatchHistory(profileId, itemType, itemId, positionMs, durationMs, updatedAt)
 
 Channel(id, playlistId, remoteId, number, name, groupName, logoUrl,
-        streamUrl, tvgId, hasArchive, archiveDays, streamFormat)
+        tvgId, hasArchive, archiveDays, streamFormat)   // akış URL'i saklanmaz; StreamResolver üretir
 EpgChannel(id, playlistId, tvgId, displayName, iconUrl)
 EpgProgram(id, epgChannelId, channelId?, startAt, endAt, title, subtitle,
            description, category, rating, episodeNum, isNew)
@@ -181,7 +183,9 @@ Recording(id, ruleId?, channelId, title, startAt, endAt, status, fileUri,
 
 İndeksler: `Channel(playlistId, groupName)`, `Channel(name COLLATE NOCASE)`,
 `EpgProgram(channelId, startAt)`, `Episode(seriesId, seasonId, number)`.
-FTS4 sanal tablolar: `channel_fts`, `movie_fts`, `series_fts`, `epg_fts`.
+FTS4 sanal tabloları (`channel_fts`, `movie_fts`, `series_fts`, `epg_fts`) P7'de,
+birleşik arama ile birlikte eklenir. P1'de kanal araması `nameNormalized` kolonu
+üzerinde indeksli `LIKE` ile yapılır (20k satır için ölçülebilir maliyeti yok).
 
 **Türkçe arama:** `İ/ı` katlaması SQLite'ın varsayılan `NOCASE`'i ile bozulur.
 FTS tablolarına normalize edilmiş (lowercase + Türkçe eşleme) bir `search_title`
@@ -246,7 +250,8 @@ interface SourceAdapter {
 - Renderer: donanım önce, başarısızsa yazılım (kullanıcıya "donanım çözme kapalı" bildirimi).
 - Tunneling: API 29+ TV'de açık; sorun çıkaran cihazda ayarla kapatılabilir.
 - Ses: parça seçimi, passthrough (AC3/EAC3/DTS) desteği cihaz yeteneğine göre.
-- Altyazı: gömülü + yan dosya (`.srt`, `.vtt`) aynı dizinden; boyut/renk/konum ayarı.
+- Altyazı: canlıda gömülü parçalar; yerel dosyalarda (kayıt/VOD) yan dosya (`.srt`, `.vtt`)
+  aynı dizinden; boyut/renk/konum ayarı.
 - En-boy: fit / fill / zoom / 16:9 / 4:3 / orijinal.
 - OSD: alt bilgi şeridi (kanal, şimdi/sıradaki, ilerleme), `INFO` ile açılır,
   4 s sonra söner; kanal listesi OSD içinden açılır.
