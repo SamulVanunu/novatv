@@ -1,0 +1,9 @@
+#EXTINF:-1,Kanal A
+http://ok/a.ts
+#EXTINF:abc tvg-logo=x,Kanal B
+http://ok/b.ts
+#EXTINF:-1,Kanal C
+
+#EXTINF:-1 tvg-id=z Kanal D
+#EXTINF:-1,Kanal E
+http://ok/e.ts

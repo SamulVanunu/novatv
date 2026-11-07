@@ -1,0 +1,3 @@
+#EXTM3U x-tvg-url="http://epg.example/guide.xml"
+#EXTINF:-1,Kanal A
+http://a/1.ts

@@ -1,0 +1,5 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="a",Kanal A
+#EXTVLCOPT:http-user-agent=VLC/3.0
+#EXTVLCOPT:http-referrer=http://ref/
+http://a/vlc.ts

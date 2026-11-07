@@ -1,0 +1,7 @@
+#EXTM3U
+#EXTINF:-1 tvg-id="trt1.tr" tvg-name="TRT 1" tvg-logo="http://logo/trt1.png" tvg-chno="1" group-title="Ulusal",TRT 1
+http://a/1.ts
+#EXTINF:-1 tvg-id="trt2.tr" group-title="Ulusal",TRT 2
+http://a/2.ts
+#EXTINF:-1 tvg-id="bein1.tr" group-title="Spor",beIN Sports 1
+http://a/3.m3u8

@@ -7,7 +7,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(libs.okhttp)
+    api(libs.okhttp)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)
