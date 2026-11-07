@@ -1,9 +1,6 @@
 package dev.anon.novatv.core.settings
 
-data class Credentials(
-    val username: String?,
-    val password: String?,
-)
+import dev.anon.novatv.core.model.Credentials
 
 interface CredentialStore {
     suspend fun put(playlistId: Long, credentials: Credentials)
