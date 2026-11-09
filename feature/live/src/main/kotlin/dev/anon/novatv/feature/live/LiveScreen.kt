@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -15,6 +16,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
@@ -34,21 +36,28 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.itemKey
-import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.anon.novatv.core.model.Channel
+import dev.anon.novatv.ui.component.NovaBackground
+import dev.anon.novatv.ui.component.NovaLabel
+import dev.anon.novatv.ui.component.NovaPanel
+import dev.anon.novatv.ui.component.NovaPill
+import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
+import dev.anon.novatv.ui.theme.novaTextFieldColors
+import dev.anon.novatv.ui.theme.NovaType
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -96,130 +105,141 @@ fun LiveScreen(
         }
     }
 
-    Row(
-        modifier = modifier
-            .fillMaxSize()
-            .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyUp && event.key == Key.Back) {
-                    runCatching { railFocus.requestFocus() }
-                    true
-                } else {
-                    false
-                }
-            },
-    ) {
-        GroupRail(
-            groups = state.groups,
-            selectedGroup = state.selectedGroup,
-            onSelect = onSelectGroup,
-            firstItemFocusRequester = railFocus,
-        )
-
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp, vertical = 16.dp)) {
-            LiveHeader(
-                state = state,
-                onQueryChange = onQueryChange,
-                onToggleFavorites = onToggleFavorites,
-                onToggleGrid = onToggleGrid,
-                onOpenPlaylists = onOpenPlaylists,
+    NovaBackground(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .onPreviewKeyEvent { event ->
+                    if (event.type == KeyEventType.KeyUp && event.key == Key.Back) {
+                        runCatching { railFocus.requestFocus() }
+                        true
+                    } else {
+                        false
+                    }
+                },
+        ) {
+            GroupRail(
+                groups = state.groups,
+                selectedGroup = state.selectedGroup,
+                onSelect = onSelectGroup,
+                firstItemFocusRequester = railFocus,
+            )
+            NovaRule(
+                modifier = Modifier
+                    .width(1.dp)
+                    .fillMaxHeight(),
+                color = NovaColors.Border.copy(alpha = 0.5f),
             )
 
-            Spacer(Modifier.height(16.dp))
-
-            val noSource = state.groups.isEmpty() && channels.itemCount == 0
-            val loading = channels.loadState.refresh is LoadState.Loading
-
-            LaunchedEffect(noSource) {
-                if (noSource) {
-                    // Kaynak yok: ilk D-pad odağı doğrudan "Kaynak ekle"ye gitsin.
-                    runCatching { emptyFocus.requestFocus() }
-                }
-            }
-
-            when {
-                channels.itemCount == 0 && (noSource || !loading) -> Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "Bu grupta kanal yok",
-                        fontSize = 20.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.testTag("empty-state"),
-                    )
-                    Spacer(Modifier.height(16.dp))
-                    Button(
-                        onClick = onOpenPlaylists,
-                        modifier = Modifier
-                            .focusRequester(emptyFocus)
-                            .testTag("empty-open-playlists"),
-                    ) {
-                        Text("Kaynak ekle veya yenile")
-                    }
-                }
-
-                loading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) { CircularProgressIndicator() }
-
-                state.grid -> LazyVerticalGrid(
-                    columns = GridCells.Fixed(GRID_COLUMNS),
-                    state = gridState,
-                    modifier = Modifier.fillMaxSize().testTag("channel-grid"),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    items(
-                        count = channels.itemCount,
-                        key = channels.itemKey { it.id },
-                    ) { index ->
-                        val channel = channels[index] ?: return@items
-                        ChannelCard(
-                            channel = channel,
-                            favorite = channel.id in state.favoriteIds,
-                            index = index,
-                            onClick = { onChannelClick(channel) },
-                            onLongClick = { actionChannel = channel },
-                            onFocused = { onRowFocused(channel) },
-                            autoFocus = pendingFirstFocus && index == 0 &&
-                                (currentGroup == null || channel.groupName == currentGroup),
-                        )
-                    }
-                }
-
-                else -> LazyColumn(
-                    state = listState,
-                    modifier = Modifier.fillMaxSize().testTag("channel-list"),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    items(
-                        count = channels.itemCount,
-                        key = channels.itemKey { it.id },
-                    ) { index ->
-                        val channel = channels[index] ?: return@items
-                        ChannelRow(
-                            channel = channel,
-                            favorite = channel.id in state.favoriteIds,
-                            index = index,
-                            onClick = { onChannelClick(channel) },
-                            onLongClick = { actionChannel = channel },
-                            onFocused = { onRowFocused(channel) },
-                            autoFocus = pendingFirstFocus && index == 0 &&
-                                (currentGroup == null || channel.groupName == currentGroup),
-                        )
-                    }
-                }
-            }
-
-            state.error?.let { message ->
-                Text(
-                    text = message,
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(top = 8.dp).testTag("live-error"),
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(start = 28.dp, end = 28.dp, top = 22.dp, bottom = 16.dp),
+            ) {
+                LiveHeader(
+                    state = state,
+                    onQueryChange = onQueryChange,
+                    onToggleFavorites = onToggleFavorites,
+                    onToggleGrid = onToggleGrid,
+                    onOpenPlaylists = onOpenPlaylists,
                 )
+
+                Spacer(Modifier.height(18.dp))
+
+                // Hiç aktif kaynak yoksa paging akışı hiç yüklenmez; spinner'da
+                // takılı kalmamak için boş durumu gruplardan anlarız.
+                val noGroups = state.groups.isEmpty()
+                val noSource = noGroups && channels.itemCount == 0
+                val loading = channels.loadState.refresh is LoadState.Loading
+
+                LaunchedEffect(noSource, state.ready) {
+                    if (state.ready && noSource) {
+                        // Kaynak yok: ilk D-pad odağı doğrudan "Kaynak ekle"ye gitsin.
+                        runCatching { emptyFocus.requestFocus() }
+                    }
+                }
+
+                when {
+                    !state.ready || (loading && channels.itemCount == 0 && !noGroups) -> Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(14.dp),
+                        ) {
+                            CircularProgressIndicator(color = NovaColors.Accent)
+                            Text(
+                                text = "Kanallar yükleniyor",
+                                style = NovaType.Small.copy(color = NovaColors.TextMuted),
+                            )
+                        }
+                    }
+
+                    channels.itemCount == 0 -> EmptyState(
+                        noSource = noSource,
+                        favoritesOnly = state.favoritesOnly,
+                        focusRequester = emptyFocus,
+                        onOpenPlaylists = onOpenPlaylists,
+                    )
+
+                    state.grid -> LazyVerticalGrid(
+                        columns = GridCells.Fixed(GRID_COLUMNS),
+                        state = gridState,
+                        modifier = Modifier.fillMaxSize().testTag("channel-grid"),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        items(
+                            count = channels.itemCount,
+                            key = channels.itemKey { it.id },
+                        ) { index ->
+                            val channel = channels[index] ?: return@items
+                            ChannelCard(
+                                channel = channel,
+                                favorite = channel.id in state.favoriteIds,
+                                index = index,
+                                onClick = { onChannelClick(channel) },
+                                onLongClick = { actionChannel = channel },
+                                onFocused = { onRowFocused(channel) },
+                                autoFocus = pendingFirstFocus && index == 0 &&
+                                    (currentGroup == null || channel.groupName == currentGroup),
+                            )
+                        }
+                    }
+
+                    else -> LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize().testTag("channel-list"),
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                    ) {
+                        items(
+                            count = channels.itemCount,
+                            key = channels.itemKey { it.id },
+                        ) { index ->
+                            val channel = channels[index] ?: return@items
+                            ChannelRow(
+                                channel = channel,
+                                favorite = channel.id in state.favoriteIds,
+                                index = index,
+                                onClick = { onChannelClick(channel) },
+                                onLongClick = { actionChannel = channel },
+                                onFocused = { onRowFocused(channel) },
+                                autoFocus = pendingFirstFocus && index == 0 &&
+                                    (currentGroup == null || channel.groupName == currentGroup),
+                            )
+                        }
+                    }
+                }
+
+                state.error?.let { message ->
+                    Text(
+                        text = message,
+                        fontSize = 14.sp,
+                        color = NovaColors.Danger,
+                        modifier = Modifier.padding(top = 8.dp).testTag("live-error"),
+                    )
+                }
             }
         }
     }
@@ -269,33 +289,52 @@ private fun LiveHeader(
     onToggleGrid: () -> Unit,
     onOpenPlaylists: () -> Unit,
 ) {
+    val groupCount = state.groups.firstOrNull {
+        it.key == (state.selectedGroup ?: LiveUiState.ALL_GROUPS_KEY)
+    }?.count
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Button(
+        Column(modifier = Modifier.weight(1f)) {
+            NovaLabel(if (state.favoritesOnly) "Favoriler" else "Canlı TV")
+            Row(
+                verticalAlignment = Alignment.Bottom,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    text = if (state.favoritesOnly) "Favoriler" else state.selectedGroupLabel,
+                    style = NovaType.Title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                groupCount?.let { count ->
+                    Text(
+                        text = "$count kanal",
+                        style = NovaType.Number.copy(color = NovaColors.TextDim),
+                        modifier = Modifier.padding(bottom = 3.dp),
+                    )
+                }
+            }
+        }
+
+        NovaPill(
+            label = if (state.favoritesOnly) "★ Favoriler" else "☆ Favoriler",
             onClick = onToggleFavorites,
-            modifier = Modifier.testTag("toggle-favorites"),
-        ) {
-            Text(if (state.favoritesOnly) "★ Favoriler" else "☆ Favoriler")
-        }
-
-        Button(
+            selected = state.favoritesOnly,
+            testTag = "toggle-favorites",
+        )
+        NovaPill(
+            label = if (state.grid) "Liste" else "Izgara",
             onClick = onToggleGrid,
-            modifier = Modifier.testTag("toggle-grid"),
-        ) {
-            Text(if (state.grid) "Liste" else "Izgara")
-        }
-
-        Spacer(Modifier.weight(1f))
-
-        Button(
+            testTag = "toggle-grid",
+        )
+        NovaPill(
+            label = "Kaynaklar",
             onClick = onOpenPlaylists,
-            modifier = Modifier.testTag("open-playlists"),
-        ) {
-            Text("Kaynaklar")
-        }
+            testTag = "open-playlists",
+        )
 
         // Arama en sağda: D-pad ile gezinirken metin alanına istemeden
         // girilmesin (odaklanınca klavye açılır).
@@ -303,11 +342,63 @@ private fun LiveHeader(
             OutlinedTextField(
                 value = state.query,
                 onValueChange = onQueryChange,
-                label = { Text("Ara") },
+                placeholder = { Text("Ara", style = NovaType.Body.copy(color = NovaColors.TextDim)) },
                 singleLine = true,
-                modifier = Modifier.width(220.dp).tvFieldNavigation(horizontal = true).testTag("live-search"),
+                shape = RoundedCornerShape(50),
+                colors = novaTextFieldColors(),
+                modifier = Modifier
+                    .width(196.dp)
+                    .tvFieldNavigation(horizontal = true)
+                    .testTag("live-search"),
             )
         }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun EmptyState(
+    noSource: Boolean,
+    favoritesOnly: Boolean,
+    focusRequester: FocusRequester,
+    onOpenPlaylists: () -> Unit,
+) {
+    val title = when {
+        noSource -> "Henüz kanal yok"
+        favoritesOnly -> "Favori kanal yok"
+        else -> "Bu grupta kanal yok"
+    }
+    val body = when {
+        noSource -> "İzlemeye başlamak için bir Xtream, M3U veya Stalker kaynağı ekleyin."
+        favoritesOnly -> "Kanalların üzerinde uzun basıp favorilere ekleyin."
+        else -> "Başka bir grup seçin veya kaynaklarınızı yenileyin."
+    }
+    Column(
+        modifier = Modifier.fillMaxSize().padding(bottom = 40.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = title,
+            style = NovaType.Display.copy(fontSize = 30.sp),
+            textAlign = TextAlign.Center,
+            modifier = Modifier.testTag("empty-state"),
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = body,
+            style = NovaType.BodyMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.width(520.dp),
+        )
+        Spacer(Modifier.height(24.dp))
+        NovaPill(
+            label = if (noSource) "Kaynak ekle" else "Kaynaklar",
+            onClick = onOpenPlaylists,
+            accent = true,
+            modifier = Modifier.focusRequester(focusRequester),
+            testTag = "empty-open-playlists",
+        )
     }
 }
 
@@ -323,38 +414,51 @@ private fun ChannelActionsDialog(
     onDismiss: () -> Unit,
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .width(420.dp)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = channel.name,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
+        NovaPanel {
+            NovaLabel("Kanal")
+            Column {
+                Text(
+                    text = channel.name,
+                    style = NovaType.Title,
+                    maxLines = 1,
+                )
+                Text(
+                    text = channel.groupName.ifBlank { "Grup yok" },
+                    style = NovaType.Small,
+                )
+            }
+            NovaRule(Modifier.fillMaxWidth())
+            NovaPill(
+                label = if (favorite) "Favoriden çıkar" else "Favorilere ekle",
+                onClick = onFavorite,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action-favorite",
             )
-            Text(
-                text = channel.groupName,
-                fontSize = 14.sp,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            NovaPill(
+                label = "Kanal numarası ata",
+                onClick = onSetNumber,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action-number",
             )
-            Button(onClick = onFavorite, modifier = Modifier.fillMaxWidth().testTag("action-favorite")) {
-                Text(if (favorite) "Favoriden çıkar" else "Favorilere ekle")
-            }
-            Button(onClick = onSetNumber, modifier = Modifier.fillMaxWidth().testTag("action-number")) {
-                Text("Kanal numarası ata")
-            }
-            Button(onClick = onHideChannel, modifier = Modifier.fillMaxWidth().testTag("action-hide-channel")) {
-                Text("Kanalı gizle")
-            }
-            Button(onClick = onHideGroup, modifier = Modifier.fillMaxWidth().testTag("action-hide-group")) {
-                Text("Grubu gizle")
-            }
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth().testTag("action-cancel")) {
-                Text("Vazgeç")
-            }
+            NovaPill(
+                label = "Kanalı gizle",
+                onClick = onHideChannel,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action-hide-channel",
+            )
+            NovaPill(
+                label = "Grubu gizle",
+                onClick = onHideGroup,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action-hide-group",
+            )
+            NovaRule(Modifier.fillMaxWidth())
+            NovaPill(
+                label = "Vazgeç",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "action-cancel",
+            )
         }
     }
 }
@@ -369,16 +473,12 @@ private fun ChannelNumberDialog(
     var value by remember(channel.id) { mutableStateOf(channel.number?.toString().orEmpty()) }
 
     Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .width(420.dp)
-                .padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
+        NovaPanel {
+            NovaLabel("Kanal numarası")
             Text(
-                text = "Kanal numarası: ${channel.name}",
-                fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.onSurface,
+                text = channel.name,
+                style = NovaType.Title,
+                maxLines = 1,
             )
             NovaTextFieldTheme {
                 OutlinedTextField(
@@ -386,19 +486,23 @@ private fun ChannelNumberDialog(
                     onValueChange = { input -> value = input.filter { it.isDigit() }.take(5) },
                     label = { Text("Numara") },
                     singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    colors = novaTextFieldColors(),
                     modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("number-input"),
                 )
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Button(
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                NovaPill(
+                    label = "Tamam",
                     onClick = { onConfirm(value.toIntOrNull()) },
-                    modifier = Modifier.testTag("number-confirm"),
-                ) { Text("Tamam") }
-                Button(onClick = onDismiss) { Text("Vazgeç") }
+                    accent = true,
+                    testTag = "number-confirm",
+                )
+                NovaPill(label = "Vazgeç", onClick = onDismiss)
             }
         }
     }
 }
 
-private const val GRID_COLUMNS = 4
+private const val GRID_COLUMNS = 3

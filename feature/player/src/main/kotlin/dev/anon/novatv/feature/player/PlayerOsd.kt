@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -22,19 +21,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import dev.anon.novatv.core.player.PlaybackState
 import dev.anon.novatv.core.player.TrackChoice
+import dev.anon.novatv.ui.component.NovaBadge
+import dev.anon.novatv.ui.component.NovaLabel
+import dev.anon.novatv.ui.component.NovaPanel
+import dev.anon.novatv.ui.component.NovaPill
+import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.theme.NovaColors
+import dev.anon.novatv.ui.theme.NovaType
 
-/** Yarı saydam OSD: kanal bilgisi, parça/oran/tampon seçimleri ve kanal listesine dönüş. */
+/**
+ * Yarı saydam OSD: kanal bilgisi, parça/oran/tampon seçimleri ve kanal listesine dönüş.
+ * Üst ve alt kenar gradyanla karartılır; görüntünün ortası görünür kalır.
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun PlayerOsd(
@@ -60,104 +69,157 @@ fun PlayerOsd(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0x99000000))
             .testTag("osd"),
     ) {
-        Column(
+        // Üst karartma: kanal adı okunsun, görüntü boğulmasın.
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .height(360.dp)
+                .align(Alignment.TopCenter)
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color(0xFB070A0E),
+                        0.38f to Color(0xCC070A0E),
+                        0.72f to Color(0x77070A0E),
+                        1f to Color.Transparent,
+                    ),
+                ),
+        )
+
+        Column(
+            modifier = Modifier
                 .align(Alignment.TopStart)
-                .padding(horizontal = 40.dp, vertical = 28.dp),
+                .padding(start = 44.dp, end = 44.dp, top = 36.dp),
         ) {
-            Text(
-                text = state.channel?.name ?: "Kanal",
-                fontSize = 30.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.White,
-                modifier = Modifier.testTag("osd-channel-name"),
-            )
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                state.channel?.groupName?.let { group ->
-                    Text(group, fontSize = 15.sp, color = Color(0xFFB9C3CE))
-                }
-                state.channel?.number?.let { number ->
-                    Text("#$number", fontSize = 15.sp, color = Color(0xFFB9C3CE))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .width(26.dp)
+                        .height(2.dp)
+                        .background(NovaColors.Accent),
+                )
+                NovaLabel("Şimdi izleniyor")
+                if (state.playback is PlaybackState.Playing) {
+                    NovaBadge(text = "canlı", color = NovaColors.Live)
+                } else if (state.playback is PlaybackState.Buffering) {
+                    NovaBadge(text = "tampon", color = NovaColors.Warning)
                 }
             }
-            Spacer(Modifier.height(20.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
-                Text("Şimdi: —", fontSize = 15.sp, color = Color(0xFFB9C3CE))
-                Text("Sıradaki: —", fontSize = 15.sp, color = Color(0xFFB9C3CE))
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = state.channel?.name ?: "Kanal",
+                style = NovaType.Display.copy(
+                    fontSize = 38.sp,
+                    lineHeight = 44.sp,
+                    shadow = androidx.compose.ui.graphics.Shadow(
+                        color = Color.Black.copy(alpha = 0.55f),
+                        offset = androidx.compose.ui.geometry.Offset(0f, 2f),
+                        blurRadius = 14f,
+                    ),
+                ),
+                color = Color.White,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("osd-channel-name"),
+            )
+            Spacer(Modifier.height(6.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                state.channel?.groupName?.takeIf { it.isNotBlank() }?.let { group ->
+                    Text(group, style = NovaType.Small.copy(color = NovaColors.TextMuted))
+                }
+                state.channel?.number?.let { number ->
+                    Text(
+                        text = "#$number",
+                        style = NovaType.Number.copy(color = NovaColors.Accent.copy(alpha = 0.85f)),
+                    )
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
+                EpgSlot(label = "Şimdi", value = "Yayın bilgisi yok")
+                EpgSlot(label = "Sıradaki", value = "—")
             }
         }
 
-        Row(
+        // Alt karartma ve denetim çubuğu.
+        Column(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
-                .background(Color(0xCC101418))
-                .padding(horizontal = 32.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .background(
+                    Brush.verticalGradient(
+                        0f to Color(0x00070A0E),
+                        0.30f to Color(0x8C070A0E),
+                        0.62f to Color(0xD9070A0E),
+                        1f to Color(0xF5070A0E),
+                    ),
+                ),
         ) {
-            Button(
-                onClick = onBackToChannels,
-                modifier = Modifier
-                    .focusRequester(firstFocusRequester)
-                    .testTag("osd-channels"),
-            ) {
-                Text("Kanallar")
-            }
-
-            if (state.canSeekBack) {
-                Button(onClick = onSeekBack, modifier = Modifier.testTag("osd-seek-back")) {
-                    Text("−10 sn")
-                }
-            }
-
-            Button(onClick = { audioMenu = true }, modifier = Modifier.testTag("osd-audio")) {
-                Text(audioLabel(state.audioTracks))
-            }
-
-            Button(onClick = { subtitleMenu = true }, modifier = Modifier.testTag("osd-subtitle")) {
-                Text(subtitleLabel(state.subtitleTracks))
-            }
-
-            Button(onClick = onCycleAspect, modifier = Modifier.testTag("osd-aspect")) {
-                Text(aspectLabel(state))
-            }
-
-            Button(onClick = onCycleBuffer, modifier = Modifier.testTag("osd-buffer")) {
-                Text("Tampon ${state.bufferSeconds} sn")
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            Text(
-                text = "Geri: OSD kapat / kanallar",
-                fontSize = 13.sp,
-                color = Color(0xFF8E9AA6),
-                modifier = Modifier.width(220.dp),
-            )
-        }
-
-        if (state.canSeekBack) {
-            Box(
+            Spacer(Modifier.height(72.dp))
+            NovaRule(Modifier.fillMaxWidth().padding(horizontal = 44.dp))
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(4.dp)
-                    .padding(horizontal = 32.dp)
-                    .align(Alignment.BottomCenter)
-                    .padding(bottom = 6.dp)
-                    .background(Color(0x663A4754), RoundedCornerShape(2.dp)),
-            )
+                    .padding(horizontal = 40.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                NovaPill(
+                    label = "‹ Kanallar",
+                    onClick = onBackToChannels,
+                    accent = true,
+                    modifier = Modifier.focusRequester(firstFocusRequester),
+                    testTag = "osd-channels",
+                )
+
+                if (state.canSeekBack) {
+                    NovaPill(
+                        label = "−10 sn",
+                        onClick = onSeekBack,
+                        testTag = "osd-seek-back",
+                    )
+                }
+
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                        .width(1.dp)
+                        .height(28.dp)
+                        .background(NovaColors.BorderStrong),
+                )
+
+                NovaPill(
+                    label = audioLabel(state.audioTracks),
+                    onClick = { audioMenu = true },
+                    testTag = "osd-audio",
+                )
+                NovaPill(
+                    label = subtitleLabel(state.subtitleTracks),
+                    onClick = { subtitleMenu = true },
+                    testTag = "osd-subtitle",
+                )
+                NovaPill(
+                    label = aspectLabel(state),
+                    onClick = onCycleAspect,
+                    testTag = "osd-aspect",
+                )
+                NovaPill(
+                    label = "Tampon ${state.bufferSeconds} sn",
+                    onClick = onCycleBuffer,
+                    testTag = "osd-buffer",
+                )
+
+            }
         }
     }
 
     if (audioMenu) {
         TrackMenuDialog(
-            title = "Ses",
+            title = "Ses parçası",
             choices = state.audioTracks,
             onSelect = { id ->
                 id?.let(onSelectAudio)
@@ -183,6 +245,18 @@ fun PlayerOsd(
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
+private fun EpgSlot(label: String, value: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        NovaLabel(label, Modifier.padding(top = 1.dp))
+        Text(value, style = NovaType.Small.copy(color = NovaColors.TextMuted))
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
 private fun TrackMenuDialog(
     title: String,
     choices: List<TrackChoice>,
@@ -191,55 +265,50 @@ private fun TrackMenuDialog(
     allowOff: Boolean = false,
 ) {
     Dialog(onDismissRequest = onDismiss) {
-        Column(
-            modifier = Modifier
-                .width(420.dp)
-                .padding(24.dp)
-                .background(Color(0xFF141A20), RoundedCornerShape(12.dp))
-                .padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = title,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+        NovaPanel {
+            NovaLabel("Parça")
+            Text(text = title, style = NovaType.Title)
+            NovaRule(Modifier.fillMaxWidth())
             if (choices.isEmpty()) {
                 Text(
                     text = "Bu yayında parça yok",
-                    fontSize = 14.sp,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = NovaType.BodyMuted,
                 )
             }
             choices.forEach { choice ->
-                Button(onClick = { onSelect(choice.id) }, modifier = Modifier.fillMaxWidth()) {
-                    Text(choice.label)
-                }
+                NovaPill(
+                    label = choice.label,
+                    onClick = { onSelect(choice.id) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
             if (allowOff) {
-                Button(onClick = { onSelect(null) }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Kapalı")
-                }
+                NovaPill(
+                    label = "Kapalı",
+                    onClick = { onSelect(null) },
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
-            Button(onClick = onDismiss, modifier = Modifier.fillMaxWidth()) {
-                Text("Vazgeç")
-            }
+            NovaPill(
+                label = "Vazgeç",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
 
 private fun audioLabel(tracks: List<TrackChoice>): String =
-    tracks.firstOrNull()?.label?.let { "Ses: $it" } ?: "Ses"
+    tracks.firstOrNull()?.label?.let { "Ses · $it" } ?: "Ses"
 
 private fun subtitleLabel(tracks: List<TrackChoice>): String =
-    tracks.firstOrNull()?.label?.let { "Altyazı: $it" } ?: "Altyazı"
+    tracks.firstOrNull()?.label?.let { "Altyazı · $it" } ?: "Altyazı"
 
 private fun aspectLabel(state: PlayerUiState): String = when (state.aspect) {
-    dev.anon.novatv.core.player.VideoAspect.FIT -> "Oran: Sığdır"
-    dev.anon.novatv.core.player.VideoAspect.FILL -> "Oran: Doldur"
-    dev.anon.novatv.core.player.VideoAspect.ZOOM -> "Oran: Kırp"
-    dev.anon.novatv.core.player.VideoAspect.RATIO_16_9 -> "Oran: 16:9"
-    dev.anon.novatv.core.player.VideoAspect.RATIO_4_3 -> "Oran: 4:3"
-    dev.anon.novatv.core.player.VideoAspect.ORIGINAL -> "Oran: Özgün"
+    dev.anon.novatv.core.player.VideoAspect.FIT -> "Oran · Sığdır"
+    dev.anon.novatv.core.player.VideoAspect.FILL -> "Oran · Doldur"
+    dev.anon.novatv.core.player.VideoAspect.ZOOM -> "Oran · Kırp"
+    dev.anon.novatv.core.player.VideoAspect.RATIO_16_9 -> "Oran · 16:9"
+    dev.anon.novatv.core.player.VideoAspect.RATIO_4_3 -> "Oran · 4:3"
+    dev.anon.novatv.core.player.VideoAspect.ORIGINAL -> "Oran · Özgün"
 }

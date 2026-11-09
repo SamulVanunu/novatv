@@ -37,6 +37,8 @@ data class LiveUiState(
     val favoriteIds: Set<Long> = emptySet(),
     val focusedChannel: Channel? = null,
     val error: String? = null,
+    /** Akışlar ilk kez yayınlandı mı? İlk karede "kaynak yok" yanıp sönmesin. */
+    val ready: Boolean = false,
 ) {
     val selectedGroupLabel: String
         get() = groups.firstOrNull { it.key == (selectedGroup ?: ALL_GROUPS_KEY) }?.label ?: "Tümü"
@@ -91,6 +93,7 @@ class LiveViewModel(
             favoriteIds = favoriteIds,
             focusedChannel = controls.focusedChannel,
             error = controls.message,
+            ready = true,
         )
     }.stateIn(
         scope = viewModelScope,

@@ -1,14 +1,19 @@
 package dev.anon.novatv.feature.playlists
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.OutlinedTextField
@@ -16,19 +21,27 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Button
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.anon.novatv.core.model.PlaylistType
+import dev.anon.novatv.ui.component.NovaBackground
+import dev.anon.novatv.ui.component.NovaBadge
+import dev.anon.novatv.ui.component.NovaLabel
+import dev.anon.novatv.ui.component.NovaPill
+import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
+import dev.anon.novatv.ui.theme.NovaType
+import dev.anon.novatv.ui.theme.novaTextFieldColors
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -52,142 +65,270 @@ fun PlaylistFormScreen(
         state.savedId?.let(onSaved)
     }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(48.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = if (state.id == null) "Kaynak ekle" else "Kaynağı düzenle",
-            fontSize = 36.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-        )
+    NovaBackground(modifier = modifier) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 52.dp, vertical = 26.dp),
+        ) {
+            NovaLabel("Kaynak")
+            Text(
+                text = if (state.id == null) "Kaynak ekle" else "Kaynağı düzenle",
+                style = NovaType.Display,
+            )
+            Text(
+                text = "Kimlik bilgileri cihazda şifreli saklanır, yayın adreslerine gömülmez.",
+                style = NovaType.BodyMuted,
+            )
+            Spacer(Modifier.height(18.dp))
+            NovaRule(Modifier.fillMaxWidth())
+            Spacer(Modifier.height(18.dp))
 
-        NovaTextFieldTheme {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = state.name,
-                    onValueChange = onName,
-                    label = { Text("Ad") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-name"),
-                )
-
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+            Box(modifier = Modifier.weight(1f)) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .verticalScroll(rememberScrollState()),
                 ) {
-                    Text("Tür", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    PlaylistType.entries.forEach { type ->
-                        Button(
-                            onClick = { onType(type) },
-                            modifier = Modifier.testTag("type-${type.name}"),
-                        ) {
-                            Text(if (type == PlaylistType.XTREAM) "Xtream" else type.name)
+                    Row(horizontalArrangement = Arrangement.spacedBy(26.dp)) {
+                        FormSection(modifier = Modifier.width(550.dp)) {
+                            NovaLabel("Bağlantı")
+
+                            Row(
+                                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                PlaylistType.entries.forEach { type ->
+                                    NovaPill(
+                                        label = typeLabel(type),
+                                        onClick = { onType(type) },
+                                        selected = state.type == type,
+                                        testTag = "type-${type.name}",
+                                    )
+                                }
+                            }
+
+                            NovaTextFieldTheme {
+                                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                    FormField(
+                                        value = state.name,
+                                        onValueChange = onName,
+                                        label = "Ad",
+                                        placeholder = "Örn. Ev listesi",
+                                        testTag = "field-name",
+                                    )
+                                    FormField(
+                                        value = state.url,
+                                        onValueChange = onUrl,
+                                        label = "URL",
+                                        placeholder = "http://sunucu:8080",
+                                        testTag = "field-url",
+                                    )
+                                    FormField(
+                                        value = state.username,
+                                        onValueChange = onUsername,
+                                        label = if (state.type == PlaylistType.STALKER) "MAC adresi" else "Kullanıcı adı",
+                                        placeholder = if (state.type == PlaylistType.STALKER) "00:1A:79:…" else "",
+                                        testTag = "field-username",
+                                    )
+                                    if (state.type == PlaylistType.XTREAM) {
+                                        FormField(
+                                            value = state.password,
+                                            onValueChange = onPassword,
+                                            label = "Şifre",
+                                            visualTransformation = PasswordVisualTransformation(),
+                                            testTag = "field-password",
+                                        )
+                                    }
+                                    if (state.type == PlaylistType.M3U) {
+                                        FormField(
+                                            value = state.epgUrl,
+                                            onValueChange = onEpgUrl,
+                                            label = "EPG URL (isteğe bağlı)",
+                                            testTag = "field-epg",
+                                        )
+                                    }
+                                    FormField(
+                                        value = state.userAgent,
+                                        onValueChange = onUserAgent,
+                                        label = "User-Agent (isteğe bağlı)",
+                                        placeholder = "Varsayılan: ExoPlayer",
+                                        testTag = "field-user-agent",
+                                    )
+                                    FormField(
+                                        value = state.syncIntervalHours,
+                                        onValueChange = onSyncInterval,
+                                        label = "Yenileme aralığı (saat)",
+                                        placeholder = "24",
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                        testTag = "field-interval",
+                                    )
+                                }
+                            }
+
+                        }
+
+                        FormSection(modifier = Modifier.width(280.dp)) {
+                            NovaLabel("Özet")
+                            Text(
+                                text = typeLabel(state.type),
+                                style = NovaType.Title,
+                                modifier = Modifier.testTag("form-type-label"),
+                            )
+                            Text(
+                                text = state.typeHint,
+                                style = NovaType.Small,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            NovaBadge(
+                                text = if (state.canSave) "hazır" else "eksik alan",
+                                color = if (state.canSave) NovaColors.Live else NovaColors.TextDim,
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            NovaRule(Modifier.fillMaxWidth())
+                            NovaLabel("Not")
+                            Note("Kanallar kaydedilince arka planda çekilir, Canlı TV'de görünür.")
+                            Note("Kimlik bilgileri cihazda şifreli saklanır.")
+                            Note("Yayın adresleri veritabanına yazılmaz.")
+
+                            state.connectionStatus?.let { status ->
+                                Spacer(Modifier.height(4.dp))
+                                NovaRule(Modifier.fillMaxWidth())
+                                Text(text = "Hesap", style = NovaType.Label)
+                                Text(
+                                    text = status,
+                                    style = NovaType.Small.copy(color = NovaColors.Live),
+                                    modifier = Modifier.testTag("connection-status"),
+                                )
+                            }
+
+                            state.error?.let { message ->
+                                Text(
+                                    text = message,
+                                    style = NovaType.Small.copy(color = NovaColors.Danger),
+                                    modifier = Modifier.testTag("form-error"),
+                                )
+                            }
                         }
                     }
+                    Spacer(Modifier.height(64.dp))
                 }
 
-                OutlinedTextField(
-                    value = state.url,
-                    onValueChange = onUrl,
-                    label = { Text("URL") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-url"),
-                )
-
-                OutlinedTextField(
-                    value = state.username,
-                    onValueChange = onUsername,
-                    label = { Text(if (state.type == PlaylistType.STALKER) "MAC adresi" else "Kullanıcı adı") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-username"),
-                )
-
-                if (state.type == PlaylistType.XTREAM) {
-                    OutlinedTextField(
-                        value = state.password,
-                        onValueChange = onPassword,
-                        label = { Text("Şifre") },
-                        singleLine = true,
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-password"),
-                    )
-                }
-
-                if (state.type == PlaylistType.M3U) {
-                    OutlinedTextField(
-                        value = state.epgUrl,
-                        onValueChange = onEpgUrl,
-                        label = { Text("EPG URL (isteğe bağlı)") },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-epg"),
-                    )
-                }
-
-                OutlinedTextField(
-                    value = state.userAgent,
-                    onValueChange = onUserAgent,
-                    label = { Text("User-Agent (isteğe bağlı)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-user-agent"),
-                )
-
-                OutlinedTextField(
-                    value = state.syncIntervalHours,
-                    onValueChange = onSyncInterval,
-                    label = { Text("Yenileme aralığı (saat)") },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-interval"),
+                // Alt kenar sönümü: içerik devam ediyor, kesik görünmesin.
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .fillMaxWidth()
+                        .height(64.dp)
+                        .background(
+                            Brush.verticalGradient(
+                                0f to Color.Transparent,
+                                1f to NovaColors.Background,
+                            ),
+                        ),
                 )
             }
-        }
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Button(
-                onClick = onTest,
-                enabled = state.canSave && !state.testing,
-                modifier = Modifier.testTag("test-connection"),
+            Spacer(Modifier.height(12.dp))
+            NovaRule(Modifier.fillMaxWidth())
+            // Kaydet/Test et her zaman erişilebilir kalsın; form uzun.
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(if (state.testing) "Test ediliyor…" else "Test et")
+                Spacer(Modifier.weight(1f))
+                NovaPill(
+                    label = if (state.testing) "Test ediliyor…" else "Test et",
+                    onClick = onTest,
+                    enabled = state.canSave && !state.testing,
+                    testTag = "test-connection",
+                )
+                NovaPill(
+                    label = if (state.saving) "Kaydediliyor…" else "Kaydet",
+                    onClick = onSave,
+                    enabled = state.canSave && !state.saving,
+                    accent = true,
+                    testTag = "save-source",
+                )
+                NovaPill(
+                    label = "Geri",
+                    onClick = onBack,
+                )
             }
-            Button(
-                onClick = onSave,
-                enabled = state.canSave && !state.saving,
-                modifier = Modifier.testTag("save-source"),
-            ) {
-                Text(if (state.saving) "Kaydediliyor…" else "Kaydet")
-            }
-            Spacer(Modifier.width(8.dp))
-            Button(onClick = onBack) { Text("Geri") }
-        }
-
-        state.connectionStatus?.let { status ->
-            Text(
-                text = "Hesap: $status",
-                fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.secondary,
-                modifier = Modifier.testTag("connection-status"),
-            )
-        }
-
-        state.error?.let { message ->
-            Text(
-                text = message,
-                fontSize = 16.sp,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.testTag("form-error"),
-            )
         }
     }
 }
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun FormSection(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Column(
+        modifier = modifier
+            .background(NovaColors.Surface, RoundedCornerShape(14.dp))
+            .border(1.dp, NovaColors.Border.copy(alpha = 0.75f), RoundedCornerShape(14.dp))
+            .padding(20.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        content()
+    }
+}
+
+/** Küçük madde işareti: kehribar nokta + sönük açıklama. */
+@Composable
+private fun Note(text: String) {
+    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+        Text("·", style = NovaType.Small.copy(color = NovaColors.Accent))
+        Text(text, style = NovaType.Small.copy(color = NovaColors.TextMuted))
+    }
+}
+
+@Composable
+private fun FormField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    testTag: String,
+    placeholder: String = "",
+    visualTransformation: VisualTransformation = VisualTransformation.None,
+    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        NovaLabel(label)
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = if (placeholder.isBlank()) null else {
+                { Text(placeholder, style = NovaType.Small) }
+            },
+            singleLine = true,
+            shape = RoundedCornerShape(12.dp),
+            visualTransformation = visualTransformation,
+            keyboardOptions = keyboardOptions,
+            colors = novaTextFieldColors(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .tvFieldNavigation()
+                .testTag(testTag),
+        )
+    }
+}
+
+private fun typeLabel(type: PlaylistType): String = when (type) {
+    PlaylistType.XTREAM -> "Xtream Codes"
+    PlaylistType.M3U -> "M3U / M3U8"
+    PlaylistType.STALKER -> "Stalker Portal"
+}
+
+private val PlaylistFormState.typeHint: String
+    get() = when (type) {
+        PlaylistType.XTREAM -> "Sunucu adresi, kullanıcı adı ve şifre ile kanal listesi alınır."
+        PlaylistType.M3U -> "Tek bir oynatma listesi bağlantısı; EPG isteğe bağlı."
+        PlaylistType.STALKER -> "Portal adresi ve cihaz MAC adresi ile giriş yapılır."
+    }
 
 object PlaylistsRoutes {
     const val LIST = "playlists"

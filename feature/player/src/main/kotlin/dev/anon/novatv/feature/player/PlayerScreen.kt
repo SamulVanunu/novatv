@@ -12,6 +12,7 @@ import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
@@ -26,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -33,17 +35,19 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
-import androidx.tv.material3.Button
-import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
+import androidx.tv.material3.ExperimentalTvMaterial3Api
 import dev.anon.novatv.core.player.PlaybackController
+import dev.anon.novatv.ui.component.NovaLabel
+import dev.anon.novatv.ui.component.NovaPill
+import dev.anon.novatv.ui.theme.NovaColors
+import dev.anon.novatv.ui.theme.NovaType
 import dev.anon.novatv.core.player.PlaybackState
 import dev.anon.novatv.core.player.VideoAspect
 
@@ -84,6 +88,11 @@ fun PlayerScreen(
         if (state.playback is PlaybackState.Failed) {
             withFrameNanos { }
             runCatching { retryFocus.requestFocus() }
+        } else if (!state.osdVisible) {
+            // Hata ekranı kapandığında odaklı düğme de kaybolur; odağı
+            // oynatıcı köküne geri ver, yoksa D-pad tamamen sağır kalır.
+            withFrameNanos { }
+            runCatching { rootFocus.requestFocus() }
         }
     }
 
@@ -102,8 +111,11 @@ fun PlayerScreen(
                         true
                     }
 
+                    // Hata ekranı açıkken OK tuşu "Yeniden dene" düğmesine
+                    // gitmeli; OSD açma bu olayı yutmamalı.
                     (event.key == Key.Info || event.key == Key.DirectionCenter) &&
-                        event.type == KeyEventType.KeyUp && !state.osdVisible -> {
+                        event.type == KeyEventType.KeyUp && !state.osdVisible &&
+                        state.playback !is PlaybackState.Failed -> {
                         onToggleOsd()
                         true
                     }
@@ -159,41 +171,66 @@ private fun PlaybackError(
     onBackToChannels: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    Box(
         modifier = modifier
-            .background(Color(0xE6101418))
-            .padding(48.dp)
+            .background(
+                Brush.verticalGradient(
+                    0f to Color(0xFA070A0E),
+                    0.6f to Color(0xF5070A0E),
+                    1f to Color(0xFF05080B),
+                ),
+            )
             .testTag("playback-error"),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+        contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = "Yayın açılamadı",
-            fontSize = 34.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color.White,
-        )
-        Spacer(Modifier.height(12.dp))
-        Text(
-            text = reason,
-            fontSize = 16.sp,
-            color = Color(0xFFB9C3CE),
-            modifier = Modifier.width(640.dp).testTag("error-detail"),
-        )
-        Spacer(Modifier.height(28.dp))
-        androidx.compose.foundation.layout.Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            if (retryable) {
-                Button(
-                    onClick = onRetry,
-                    modifier = Modifier
-                        .focusRequester(retryFocusRequester)
-                        .testTag("playback-retry"),
-                ) {
-                    Text("Yeniden dene")
+        Column(modifier = Modifier.width(680.dp)) {
+            NovaLabel(if (retryable) "Bağlantı sorunu" else "Yayın hatası")
+            Spacer(Modifier.height(10.dp))
+            Box(
+                modifier = Modifier
+                    .width(38.dp)
+                    .height(3.dp)
+                    .background(if (retryable) NovaColors.Accent else NovaColors.Danger),
+            )
+            Spacer(Modifier.height(14.dp))
+            Text(
+                text = "Yayın açılamadı",
+                style = NovaType.Display.copy(fontSize = 36.sp, lineHeight = 42.sp),
+                color = Color.White,
+            )
+            Spacer(Modifier.height(10.dp))
+            Text(
+                text = if (retryable) {
+                    "Sunucuya ulaşılamadı. Ağ bağlantısını ve kaynak adresini kontrol edin, sonra yeniden deneyin."
+                } else {
+                    "Bu yayın oynatılamıyor. Kaynağı yenileyip yeniden deneyin."
+                },
+                style = NovaType.BodyMuted,
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = reason,
+                style = NovaType.Small.copy(color = NovaColors.TextDim, fontSize = 12.sp),
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag("error-detail"),
+            )
+            Spacer(Modifier.height(26.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (retryable) {
+                    NovaPill(
+                        label = "Yeniden dene",
+                        onClick = onRetry,
+                        accent = true,
+                        modifier = Modifier.focusRequester(retryFocusRequester),
+                        testTag = "playback-retry",
+                    )
                 }
-            }
-            Button(onClick = onBackToChannels, modifier = Modifier.testTag("error-channels")) {
-                Text("Kanallar")
+                NovaPill(
+                    label = "Kanallar",
+                    onClick = onBackToChannels,
+                    testTag = "error-channels",
+                )
             }
         }
     }
