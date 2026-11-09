@@ -93,6 +93,7 @@ class SyncEngine(
             finish(playlistId, SyncState.OK, null)
         } catch (e: CancellationException) {
             db.playlistDao().setSyncState(playlistId, SyncState.FAILED.name)
+            db.playlistDao().setLastError(playlistId, null)
             throw e
         } catch (e: Exception) {
             finish(playlistId, SyncState.FAILED, e.message ?: e::class.simpleName)
@@ -100,11 +101,14 @@ class SyncEngine(
     }
 
     private suspend fun finish(playlistId: Long, state: SyncState, message: String?): SyncState {
+        // Neden yalnızca gerçek hatada görünür; kısmi/başarılı senkronda temizlenir.
+        val lastError = if (state == SyncState.FAILED) sanitizeSyncMessage(message) else null
         if (state == SyncState.OK || state == SyncState.PARTIAL) {
             db.playlistDao().markSync(playlistId, System.currentTimeMillis(), state.name)
         } else {
             db.playlistDao().setSyncState(playlistId, state.name)
         }
+        db.playlistDao().setLastError(playlistId, lastError)
         emit(SyncEvent.Finished(playlistId, state, message))
         return state
     }

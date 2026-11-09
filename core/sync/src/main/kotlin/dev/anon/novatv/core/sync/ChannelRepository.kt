@@ -21,6 +21,9 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.util.concurrent.atomic.AtomicLong
 
+/** "Son izlenenler" sanal grubunun anahtarı; gerçek bir grup adıyla çakışmaz. */
+const val RECENT_GROUP_KEY = "__recent"
+
 data class GroupItem(val key: String, val label: String, val count: Int)
 
 data class ChannelFilter(
@@ -60,9 +63,15 @@ class RoomChannelRepository(
                 if (playlistIds.isEmpty()) {
                     flowOf(emptyList())
                 } else {
-                    db.channelDao().observeGroupCounts(playlistIds, profileId).map { counts ->
+                    combine(
+                        db.channelDao().observeGroupCounts(playlistIds, profileId),
+                        db.channelDao().observeRecentCount(playlistIds, profileId),
+                    ) { counts, recentCount ->
                         buildList {
                             add(GroupItem(key = ALL_GROUPS_KEY, label = "Tümü", count = counts.sumOf { it.count }))
+                            if (recentCount > 0) {
+                                add(GroupItem(key = RECENT_GROUP_KEY, label = "Son izlenenler", count = recentCount))
+                            }
                             counts.forEach { add(GroupItem(key = it.name, label = it.name, count = it.count)) }
                         }
                     }
@@ -86,13 +95,23 @@ class RoomChannelRepository(
                             enablePlaceholders = false,
                         ),
                     ) {
-                        db.channelDao().paging(
-                            playlistIds = playlistIds,
-                            group = filter.group,
-                            q = SearchText.normalize(filter.query),
-                            favoritesOnly = filter.favoritesOnly,
-                            profileId = profileId,
-                        )
+                        val query = SearchText.normalize(filter.query)
+                        if (filter.group == RECENT_GROUP_KEY) {
+                            db.channelDao().recentPaging(
+                                playlistIds = playlistIds,
+                                q = query,
+                                favoritesOnly = filter.favoritesOnly,
+                                profileId = profileId,
+                            )
+                        } else {
+                            db.channelDao().paging(
+                                playlistIds = playlistIds,
+                                group = filter.group,
+                                q = query,
+                                favoritesOnly = filter.favoritesOnly,
+                                profileId = profileId,
+                            )
+                        }
                     }.flow.map { page -> page.map { it.toModel() } }
                 }
             }

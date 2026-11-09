@@ -42,6 +42,49 @@ abstract class ChannelDao {
         profileId: Long,
     ): PagingSource<Int, ChannelEntity>
 
+    /** Son izlenenler rayı: gizli kanal/grup filtreleri normal listeyle aynı. */
+    @Query(
+        """
+        SELECT channel.* FROM channel
+        INNER JOIN watch_history wh
+            ON wh.itemId = channel.id AND wh.itemType = 'CHANNEL' AND wh.profileId = :profileId
+        WHERE channel.playlistId IN (:playlistIds)
+          AND (:q = '' OR channel.nameNormalized LIKE '%' || :q || '%')
+          AND (:favoritesOnly = 0 OR channel.id IN (
+              SELECT itemId FROM favorite WHERE profileId = :profileId AND itemType = 'CHANNEL'))
+          AND channel.id NOT IN (SELECT channelId FROM hidden_channel WHERE profileId = :profileId)
+          AND NOT EXISTS (
+              SELECT 1 FROM hidden_group hg
+              WHERE hg.profileId = :profileId
+                AND hg.playlistId = channel.playlistId
+                AND hg.groupName = channel.groupName)
+        ORDER BY wh.updatedAt DESC
+        """,
+    )
+    abstract fun recentPaging(
+        playlistIds: List<Long>,
+        q: String,
+        favoritesOnly: Boolean,
+        profileId: Long,
+    ): PagingSource<Int, ChannelEntity>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM watch_history wh
+        INNER JOIN channel ON channel.id = wh.itemId
+        WHERE wh.profileId = :profileId
+          AND wh.itemType = 'CHANNEL'
+          AND channel.playlistId IN (:playlistIds)
+          AND channel.id NOT IN (SELECT channelId FROM hidden_channel WHERE profileId = :profileId)
+          AND NOT EXISTS (
+              SELECT 1 FROM hidden_group hg
+              WHERE hg.profileId = :profileId
+                AND hg.playlistId = channel.playlistId
+                AND hg.groupName = channel.groupName)
+        """,
+    )
+    abstract fun observeRecentCount(playlistIds: List<Long>, profileId: Long): Flow<Int>
+
     @Query(
         """
         SELECT groupName AS name, COUNT(*) AS count FROM channel

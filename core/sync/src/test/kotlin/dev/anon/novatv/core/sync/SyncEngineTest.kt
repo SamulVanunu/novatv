@@ -64,6 +64,38 @@ class SyncEngineTest {
         assertEquals(SyncState.FAILED, engine.sync(1))
         assertEquals(2, db.channelDao().countByPlaylist(1))
         assertEquals(SyncState.FAILED.name, db.playlistDao().byId(1)!!.syncState)
+        assertEquals("kimlik reddedildi", db.playlistDao().byId(1)!!.lastError)
+    }
+
+    @Test
+    fun syncFailureReasonNeverLeaksUrlOrCredentials() = runTest {
+        seedPlaylist(db)
+        credentials.put(1, demoCredentials())
+        fake.authFailure = SourceAuthException(
+            "İstek başarısız: https://panel.example/get.php?username=ali&password=cok-gizli",
+        )
+
+        assertEquals(SyncState.FAILED, engine.sync(1))
+
+        val error = db.playlistDao().byId(1)!!.lastError.orEmpty()
+        assert(error.isNotBlank())
+        assert(!error.contains("cok-gizli")) { "şifre sızdı: $error" }
+        assert(!error.contains("panel.example")) { "adres sızdı: $error" }
+        assert(!error.contains("ali")) { "kullanıcı adı sızdı: $error" }
+    }
+
+    @Test
+    fun successfulSyncClearsPreviousError() = runTest {
+        seedPlaylist(db)
+        credentials.put(1, demoCredentials())
+        fake.authFailure = SourceAuthException("kimlik reddedildi")
+        assertEquals(SyncState.FAILED, engine.sync(1))
+
+        fake.authFailure = null
+        fake.channels = listOf(channel(remoteId = "10", name = "TRT 1"))
+        assertEquals(SyncState.OK, engine.sync(1))
+
+        assertEquals(null, db.playlistDao().byId(1)!!.lastError)
     }
 
     @Test

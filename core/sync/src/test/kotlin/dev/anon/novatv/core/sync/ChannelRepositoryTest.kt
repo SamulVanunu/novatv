@@ -99,6 +99,38 @@ class ChannelRepositoryTest {
     }
 
     @Test
+    fun recentGroupListsWatchedChannelsNewestFirstAndSkipsHidden() = runTest {
+        seedPlaylist(db)
+        db.channelDao().replaceForPlaylist(
+            1, 1,
+            listOf(
+                channelEntity("10", "TRT 1", "Ulusal"),
+                channelEntity("12", "beIN Sports", "Spor"),
+            ),
+        )
+        val all = repository.channels(ChannelFilter()).asSnapshot()
+        val trt1 = all.first { it.name == "TRT 1" }
+        val beIn = all.first { it.name == "beIN Sports" }
+
+        repository.recordWatch(trt1)
+        repository.recordWatch(beIn)
+
+        val groups = repository.groups().first()
+        assertEquals(GroupItem(RECENT_GROUP_KEY, "Son izlenenler", 2), groups[1])
+        assertEquals(
+            listOf("beIN Sports", "TRT 1"),
+            repository.channels(ChannelFilter(group = RECENT_GROUP_KEY)).asSnapshot().map { it.name },
+        )
+
+        repository.hideChannel(beIn)
+        assertEquals(
+            listOf("TRT 1"),
+            repository.channels(ChannelFilter(group = RECENT_GROUP_KEY)).asSnapshot().map { it.name },
+        )
+        assertEquals(1, repository.groups().first()[1].count)
+    }
+
+    @Test
     fun inactivePlaylistChannelsAreNotListed() = runTest {
         seedPlaylist(db, id = 1, active = true)
         seedPlaylist(db, id = 2, active = false)

@@ -48,6 +48,7 @@ import androidx.paging.compose.itemKey
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import dev.anon.novatv.core.model.Channel
+import dev.anon.novatv.core.sync.RECENT_GROUP_KEY
 import dev.anon.novatv.ui.component.NovaBackground
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPanel
@@ -89,6 +90,14 @@ fun LiveScreen(
         pendingFirstFocus = true
     }
 
+    // Seçili grup kaybolduysa (ör. son izlenenler boşaldı) Tümü'ye dön.
+    LaunchedEffect(state.groups, state.selectedGroup) {
+        val selected = state.selectedGroup
+        if (selected != null && state.groups.none { it.key == selected }) {
+            onSelectGroup(null)
+        }
+    }
+
     // Liste boşsa odak kaybolmaz, grup rayına döner.
     LaunchedEffect(channels.itemCount, channels.loadState.refresh) {
         if (channels.itemCount == 0 && channels.loadState.refresh !is LoadState.Loading) {
@@ -100,7 +109,7 @@ fun LiveScreen(
     val currentGroup = state.selectedGroup
     val onRowFocused: (Channel) -> Unit = { channel ->
         onChannelFocused(channel)
-        if (currentGroup == null || channel.groupName == currentGroup) {
+        if (currentGroup == null || currentGroup == RECENT_GROUP_KEY || channel.groupName == currentGroup) {
             pendingFirstFocus = false
         }
     }
@@ -203,7 +212,8 @@ fun LiveScreen(
                                 onLongClick = { actionChannel = channel },
                                 onFocused = { onRowFocused(channel) },
                                 autoFocus = pendingFirstFocus && index == 0 &&
-                                    (currentGroup == null || channel.groupName == currentGroup),
+                                    (currentGroup == null || currentGroup == RECENT_GROUP_KEY ||
+                                        channel.groupName == currentGroup),
                             )
                         }
                     }
@@ -226,7 +236,8 @@ fun LiveScreen(
                                 onLongClick = { actionChannel = channel },
                                 onFocused = { onRowFocused(channel) },
                                 autoFocus = pendingFirstFocus && index == 0 &&
-                                    (currentGroup == null || channel.groupName == currentGroup),
+                                    (currentGroup == null || currentGroup == RECENT_GROUP_KEY ||
+                                        channel.groupName == currentGroup),
                             )
                         }
                     }

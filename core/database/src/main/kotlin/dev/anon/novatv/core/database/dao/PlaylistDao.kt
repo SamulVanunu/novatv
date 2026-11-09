@@ -38,6 +38,9 @@ abstract class PlaylistDao {
     @Query("UPDATE playlist SET syncState = :state WHERE id = :id")
     abstract suspend fun setSyncState(id: Long, state: String)
 
+    @Query("UPDATE playlist SET lastError = :message WHERE id = :id")
+    abstract suspend fun setLastError(id: Long, message: String?)
+
     @Transaction
     open suspend fun upsert(entity: PlaylistEntity): Long {
         if (entity.id == 0L) return insert(entity)

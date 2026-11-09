@@ -226,6 +226,16 @@ private fun PlaylistRow(
                     text = "${playlist.syncIntervalHours} saatte bir yenilenir",
                     style = NovaType.Small.copy(color = NovaColors.TextDim),
                 )
+                playlist.lastError?.let { message ->
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = message,
+                        style = NovaType.Small.copy(color = NovaColors.Danger),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.testTag("playlist-error"),
+                    )
+                }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     NovaPill(label = "Düzenle", onClick = onEdit)
