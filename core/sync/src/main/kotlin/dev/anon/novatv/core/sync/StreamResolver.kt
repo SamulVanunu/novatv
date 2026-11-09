@@ -2,6 +2,8 @@ package dev.anon.novatv.core.sync
 
 import dev.anon.novatv.core.model.Channel
 import dev.anon.novatv.core.model.Credentials
+import dev.anon.novatv.core.model.Episode
+import dev.anon.novatv.core.model.Movie
 import dev.anon.novatv.core.model.Playlist
 import dev.anon.novatv.core.model.StreamFormat
 import dev.anon.novatv.core.settings.CredentialStore
@@ -29,6 +31,32 @@ class StreamResolver(
         return registry.adapterFor(playlist, creds).catchupUrl(channel, at, minutes)
     }
 
+    /** Arşiv (catch-up) akışı; URL ve başlıklar normal oynatmayla aynı kurallarla üretilir. */
+    suspend fun resolveCatchupStream(channel: Channel, at: Instant, minutes: Int): ResolvedStream? {
+        val (playlist, creds) = loadActive(channel.playlistId)
+        val url = registry.adapterFor(playlist, creds).catchupUrl(channel, at, minutes) ?: return null
+        return ResolvedStream(url = url, headers = headersFor(channel, playlist))
+    }
+
+    /** Film akışı; Xtream dışındaki kaynaklar desteklemiyorsa hata verir. */
+    suspend fun resolveMovie(movie: Movie): ResolvedStream {
+        val (playlist, creds) = loadActive(movie.playlistId)
+        val url = registry.adapterFor(playlist, creds).movieUrl(movie)
+            ?: throw IllegalStateException("Bu kaynak film oynatmayı desteklemiyor")
+        return ResolvedStream(url = url, headers = headersFor(playlist))
+    }
+
+    /** Dizi bölümü akışı. */
+    suspend fun resolveEpisode(episode: Episode, playlistId: Long): ResolvedStream {
+        val (playlist, creds) = loadActive(playlistId)
+        val url = registry.adapterFor(playlist, creds).episodeUrl(episode)
+            ?: throw IllegalStateException("Bu kaynak dizi oynatmayı desteklemiyor")
+        return ResolvedStream(url = url, headers = headersFor(playlist))
+    }
+
+    /** Yerel kayıt dosyası: başlık gerekmez, doğrudan dosya yolu. */
+    fun resolveLocal(path: String): ResolvedStream = ResolvedStream(url = path, headers = emptyMap())
+
     /**
      * Akış isteği başlıkları. Kanal düzeyi (#EXTVLCOPT) kaynak düzeyini ezer;
      * kaynakta tanımlı UA/Referer yoksa başlık gönderilmez, oynatıcı kendi
@@ -39,6 +67,11 @@ class StreamResolver(
             ?.let { put("User-Agent", it) }
         (channel.streamReferer ?: playlist.referer)?.takeIf { it.isNotBlank() }
             ?.let { put("Referer", it) }
+    }
+
+    private fun headersFor(playlist: Playlist): Map<String, String> = buildMap {
+        playlist.userAgent?.takeIf { it.isNotBlank() }?.let { put("User-Agent", it) }
+        playlist.referer?.takeIf { it.isNotBlank() }?.let { put("Referer", it) }
     }
 
     private suspend fun loadActive(playlistId: Long): Pair<Playlist, Credentials?> {

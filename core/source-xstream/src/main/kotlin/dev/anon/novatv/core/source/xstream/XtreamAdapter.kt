@@ -2,10 +2,12 @@ package dev.anon.novatv.core.source.xstream
 
 import dev.anon.novatv.core.model.Channel
 import dev.anon.novatv.core.model.Credentials
+import dev.anon.novatv.core.model.Episode
 import dev.anon.novatv.core.model.Movie
 import dev.anon.novatv.core.model.Playlist
 import dev.anon.novatv.core.model.PlaylistType
 import dev.anon.novatv.core.model.Series
+import dev.anon.novatv.core.model.SeriesInfo
 import dev.anon.novatv.core.model.SourceAccount
 import dev.anon.novatv.core.model.StreamFormat
 import dev.anon.novatv.core.network.NovaHttp
@@ -47,6 +49,14 @@ class XtreamAdapter(
     override suspend fun series(): List<Series> =
         client.series().map { it.copy(playlistId = playlist.id) }
 
+    override suspend fun seriesInfo(seriesId: String): SeriesInfo = client.seriesInfo(seriesId)
+
+    override fun movieUrl(movie: Movie): String =
+        client.vodUrl(movie.remoteId, extension(movie.containerExt))
+
+    override fun episodeUrl(episode: Episode): String =
+        client.seriesUrl(episode.remoteId, extension(episode.containerExt))
+
     override suspend fun epg(): EpgSource =
         EpgSource(url = playlist.epgUrl?.takeIf { it.isNotBlank() } ?: client.epgUrl(), headers = headers)
 
@@ -61,6 +71,9 @@ class XtreamAdapter(
         StreamFormat.TS -> "ts"
         StreamFormat.AUTO -> "ts"
     }
+
+    private fun extension(container: String?): String =
+        container?.trim()?.trimStart('.')?.takeIf { it.isNotEmpty() } ?: "mp4"
 }
 
 class XtreamFactory : SourceAdapterFactory {

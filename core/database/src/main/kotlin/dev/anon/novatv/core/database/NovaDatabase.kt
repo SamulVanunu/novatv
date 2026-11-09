@@ -6,7 +6,9 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import dev.anon.novatv.core.database.dao.ChannelDao
 import dev.anon.novatv.core.database.dao.EpgDao
+import dev.anon.novatv.core.database.dao.LibraryDao
 import dev.anon.novatv.core.database.dao.PlaylistDao
+import dev.anon.novatv.core.database.dao.ProfileDao
 import dev.anon.novatv.core.database.dao.UserDataDao
 import dev.anon.novatv.core.database.entity.ChannelEntity
 import dev.anon.novatv.core.database.entity.EpgChannelEntity
@@ -45,6 +47,8 @@ abstract class NovaDatabase : RoomDatabase() {
     abstract fun playlistDao(): PlaylistDao
     abstract fun channelDao(): ChannelDao
     abstract fun epgDao(): EpgDao
+    abstract fun libraryDao(): LibraryDao
+    abstract fun profileDao(): ProfileDao
     abstract fun userDataDao(): UserDataDao
 
     companion object {

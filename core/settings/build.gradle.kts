@@ -24,7 +24,9 @@ kotlin {
 
 dependencies {
     api(project(":core:model"))
-    implementation(libs.androidx.datastore.preferences)
+    // PreferenceStore'in imzası DataStore<Preferences> taşıyor; tüketici
+    // modüllerin bu tipi çözebilmesi için api kapsamında.
+    api(libs.androidx.datastore.preferences)
     implementation(libs.androidx.security.crypto)
     implementation(libs.kotlinx.coroutines.android)
 

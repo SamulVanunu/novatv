@@ -113,7 +113,7 @@ fun PlayerOsd(
             }
             Spacer(Modifier.height(6.dp))
             Text(
-                text = state.channel?.name ?: "Kanal",
+                text = state.title ?: state.channel?.name ?: "Kanal",
                 style = NovaType.Display.copy(
                     fontSize = 38.sp,
                     lineHeight = 44.sp,

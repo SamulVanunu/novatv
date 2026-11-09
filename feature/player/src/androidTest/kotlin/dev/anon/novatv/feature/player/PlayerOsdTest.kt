@@ -192,6 +192,8 @@ class PlayerOsdTest {
 
         override suspend fun lastChannel(): Channel? = channel
 
+        override suspend fun allChannels(limit: Int): List<Channel> = listOf(channel)
+
         override suspend fun recordWatch(channel: Channel, positionMs: Long, durationMs: Long) = Unit
     }
 

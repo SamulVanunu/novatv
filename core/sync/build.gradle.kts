@@ -31,12 +31,14 @@ dependencies {
     api(project(":core:database"))
     api(project(":core:settings"))
     implementation(project(":core:network"))
+    implementation(project(":core:epg"))
 
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.room.paging)
     api(libs.androidx.paging.runtime)
     implementation(libs.androidx.work.runtime.ktx)
+    implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
 
     testImplementation(libs.junit)

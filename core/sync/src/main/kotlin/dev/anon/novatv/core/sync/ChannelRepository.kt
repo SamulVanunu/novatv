@@ -39,6 +39,9 @@ interface ChannelRepository {
     /** Aktif profilin favori kanal kimlikleri; satırlardaki yıldız için. */
     fun favoriteChannelIds(): Flow<Set<Long>>
     suspend fun byId(id: Long): Channel?
+
+    /** Çoklu ekran ve seçiciler için düz liste; 0 = tümü. */
+    suspend fun allChannels(limit: Int = 0): List<Channel>
     suspend fun toggleFavorite(channel: Channel)
     suspend fun hideChannel(channel: Channel)
     suspend fun hideGroup(group: String)
@@ -123,6 +126,14 @@ class RoomChannelRepository(
         }
 
     override suspend fun byId(id: Long): Channel? = db.channelDao().byId(id)?.toModel()
+
+    override suspend fun allChannels(limit: Int): List<Channel> {
+        val playlistIds = db.playlistDao().observeActive().first().map { it.id }
+        val channels = playlistIds.flatMap { id ->
+            db.channelDao().byPlaylist(id).map { it.toModel() }
+        }
+        return if (limit > 0) channels.take(limit) else channels
+    }
 
     override suspend fun toggleFavorite(channel: Channel) {
         db.userDataDao().toggleFavorite(

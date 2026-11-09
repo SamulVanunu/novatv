@@ -48,7 +48,8 @@ fun NovaBackground(
                 Brush.verticalGradient(
                     0f to NovaColors.BackgroundRaised,
                     0.55f to NovaColors.Background,
-                    1f to Color(0xFF05080B),
+                    // Açık temada dip siyaha kaçmasın: paletin kendi koyusu.
+                    1f to NovaColors.SurfacePressed,
                 ),
             )
             .background(

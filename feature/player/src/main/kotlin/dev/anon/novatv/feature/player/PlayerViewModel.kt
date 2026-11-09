@@ -25,14 +25,28 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 
 /** Kanalın yayın adresini üretir; Xtream kimliği Room'a yazılmadığı için her açılışta çözülür. */
 fun interface ChannelStreamResolver {
     suspend fun resolve(channel: Channel): ResolvedStream
+
+    /** Arşiv akışı; kaynak catch-up sunmuyorsa null. */
+    suspend fun resolveCatchup(channel: Channel, at: Instant, minutes: Int): ResolvedStream? = null
 }
+
+/** VOD/dizi oynatması: başlık, çözücü ve ilerleme kaydı oynatıcıya taşınır. */
+data class VodRequest(
+    val title: String,
+    val startPositionMs: Long = 0,
+    val resolve: suspend () -> ResolvedStream,
+    val onProgress: suspend (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
+)
 
 data class PlayerUiState(
     val channel: Channel? = null,
+    val title: String? = null,
+    val vod: Boolean = false,
     val playback: PlaybackState = PlaybackState.Idle,
     val osdVisible: Boolean = false,
     val audioTracks: List<TrackChoice> = emptyList(),
@@ -53,11 +67,17 @@ class PlayerViewModel(
 ) : ViewModel() {
 
     private val channel = MutableStateFlow<Channel?>(null)
+    private val title = MutableStateFlow<String?>(null)
     private val osdVisible = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
     private var hideJob: Job? = null
     private var lastRecordedChannelId: Long? = null
     private var externalSubtitle: SubtitleSpec? = null
+
+    /** Açık arşiv oynatması; yeniden deneme aynı aralığı ister. */
+    private var catchup: Pair<Long, Int>? = null
+    private var vod: VodRequest? = null
+    private var progressJob: Job? = null
 
     private val bufferSeconds: StateFlow<Int> = preferenceStore.playerBufferSeconds
         .catch { emit(DEFAULT_BUFFER_SECONDS) }
@@ -79,15 +99,19 @@ class PlayerViewModel(
         failure to notice
     }
 
+    private val identity = combine(channel, title) { channel, title -> channel to title }
+
     val state: StateFlow<PlayerUiState> = combine(
-        channel,
+        identity,
         playbackInfo,
         osdInfo,
         bufferSeconds,
         messages,
-    ) { channel, playback, osd, buffer, message ->
+    ) { identity, playback, osd, buffer, message ->
         PlayerUiState(
-            channel = channel,
+            channel = identity.first,
+            title = identity.second,
+            vod = vod != null,
             playback = playback.first,
             osdVisible = osd.visible,
             audioTracks = playback.second,
@@ -123,9 +147,13 @@ class PlayerViewModel(
         }
     }
 
-    fun open(channelId: Long) {
+    fun open(channelId: Long, catchupAt: Long? = null, catchupMinutes: Int = 0) {
         lastRecordedChannelId = null
         externalSubtitle = null
+        vod = null
+        title.value = null
+        cancelProgress()
+        catchup = catchupAt?.takeIf { it > 0 && catchupMinutes > 0 }?.let { it to catchupMinutes }
         viewModelScope.launch {
             val found = runCatching { repository.byId(channelId) }
                 .onFailure(::report)
@@ -135,13 +163,29 @@ class PlayerViewModel(
                 return@launch
             }
             channel.value = found
-            play(found)
+            playCurrent(found)
         }
     }
 
+    /** Film/bölüm oynatması; konum ve ilerleme geri bildirimi çağıran tarafta. */
+    fun openVod(request: VodRequest) {
+        lastRecordedChannelId = null
+        externalSubtitle = null
+        catchup = null
+        vod = request
+        channel.value = null
+        title.value = request.title
+        viewModelScope.launch { playVod(request) }
+        startProgress(request)
+    }
+
     fun retry() {
+        vod?.let { request ->
+            viewModelScope.launch { playVod(request) }
+            return
+        }
         val current = channel.value ?: return
-        viewModelScope.launch { play(current) }
+        viewModelScope.launch { playCurrent(current) }
     }
 
     fun toggleOsd() {
@@ -192,8 +236,12 @@ class PlayerViewModel(
     /** Harici altyazı dosyasını akışa ekler; yayın yeniden hazırlanır. */
     fun setExternalSubtitle(uri: Uri, mimeType: String) {
         externalSubtitle = SubtitleSpec(uri = uri, mimeType = mimeType)
+        vod?.let { request ->
+            viewModelScope.launch { playVod(request) }
+            return
+        }
         val current = channel.value ?: return
-        viewModelScope.launch { play(current) }
+        viewModelScope.launch { playCurrent(current) }
     }
 
     /** Cihazda belge seçici yoksa kullanıcıya Türkçe bilgi ver. */
@@ -225,6 +273,70 @@ class PlayerViewModel(
 
     fun playback(): PlaybackController = playbackController
 
+    private suspend fun playVod(request: VodRequest) {
+        runCatching { request.resolve() }
+            .onSuccess { stream ->
+                error.value = null
+                playbackController.prepare(
+                    url = stream.url,
+                    headers = stream.headers,
+                    startPositionMs = request.startPositionMs,
+                    subtitle = externalSubtitle,
+                )
+            }
+            .onFailure { throwable ->
+                report(throwable)
+                error.value = throwable.message ?: "İçerik adresi çözülemedi"
+            }
+    }
+
+    private fun startProgress(request: VodRequest) {
+        cancelProgress()
+        progressJob = viewModelScope.launch {
+            while (true) {
+                delay(PROGRESS_MS)
+                val duration = playbackController.durationMs
+                if (duration <= 0) continue
+                runCatching {
+                    request.onProgress(playbackController.positionMs, duration)
+                }
+            }
+        }
+    }
+
+    private fun cancelProgress() {
+        progressJob?.cancel()
+        progressJob = null
+    }
+
+    override fun onCleared() {
+        cancelProgress()
+        super.onCleared()
+    }
+
+    private suspend fun playCurrent(channel: Channel) {
+        val range = catchup
+        if (range == null) {
+            play(channel)
+            return
+        }
+        val (startAt, minutes) = range
+        runCatching { resolver.resolveCatchup(channel, Instant.ofEpochMilli(startAt), minutes) }
+            .onSuccess { stream ->
+                if (stream == null) {
+                    error.value = "Bu kanalda arşiv yok"
+                    play(channel)
+                    return@onSuccess
+                }
+                error.value = null
+                playbackController.prepare(stream.url, stream.headers, subtitle = externalSubtitle)
+            }
+            .onFailure { throwable ->
+                report(throwable)
+                error.value = throwable.message ?: "Arşiv akışı çözülemedi"
+            }
+    }
+
     private suspend fun play(channel: Channel) {
         runCatching { resolver.resolve(channel) }
             .onSuccess { stream ->
@@ -253,6 +365,7 @@ class PlayerViewModel(
         const val SEEK_BACK_STEP_MS = 10_000L
         const val SEEK_BACK_MINUTE_MS = 60_000L
         const val DEFAULT_BUFFER_SECONDS = 30
+        private const val PROGRESS_MS = 3_000L
 
         fun factory(
             playbackController: PlaybackController,

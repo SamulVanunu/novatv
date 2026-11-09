@@ -181,6 +181,9 @@ class LiveViewModelTest {
 
         override suspend fun lastChannel(): Channel? = channels.first()
 
+        override suspend fun allChannels(limit: Int): List<Channel> =
+            if (limit > 0) channels.take(limit) else channels
+
         override suspend fun recordWatch(channel: Channel, positionMs: Long, durationMs: Long) = Unit
     }
 }

@@ -76,6 +76,12 @@ fun LiveScreen(
     onSetNumber: (Channel, Int?) -> Unit,
     onChannelFocused: (Channel?) -> Unit,
     onOpenPlaylists: () -> Unit = {},
+    onOpenGuide: () -> Unit = {},
+    onOpenLibrary: () -> Unit = {},
+    onOpenRecordings: () -> Unit = {},
+    onOpenMultiwall: () -> Unit = {},
+    onOpenSearch: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val railFocus = remember { FocusRequester() }
@@ -85,6 +91,7 @@ fun LiveScreen(
     var pendingFirstFocus by remember { mutableStateOf(true) }
     var actionChannel by remember { mutableStateOf<Channel?>(null) }
     var numberChannel by remember { mutableStateOf<Channel?>(null) }
+    var menuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.selectedGroup) {
         pendingFirstFocus = true
@@ -151,6 +158,8 @@ fun LiveScreen(
                     onToggleFavorites = onToggleFavorites,
                     onToggleGrid = onToggleGrid,
                     onOpenPlaylists = onOpenPlaylists,
+                    onOpenGuide = onOpenGuide,
+                    onOpenMenu = { menuOpen = true },
                 )
 
                 Spacer(Modifier.height(18.dp))
@@ -255,6 +264,40 @@ fun LiveScreen(
         }
     }
 
+    if (menuOpen) {
+        LiveMenuDialog(
+            onGuide = {
+                menuOpen = false
+                onOpenGuide()
+            },
+            onLibrary = {
+                menuOpen = false
+                onOpenLibrary()
+            },
+            onPlaylists = {
+                menuOpen = false
+                onOpenPlaylists()
+            },
+            onRecordings = {
+                menuOpen = false
+                onOpenRecordings()
+            },
+            onMultiwall = {
+                menuOpen = false
+                onOpenMultiwall()
+            },
+            onSearch = {
+                menuOpen = false
+                onOpenSearch()
+            },
+            onSettings = {
+                menuOpen = false
+                onOpenSettings()
+            },
+            onDismiss = { menuOpen = false },
+        )
+    }
+
     actionChannel?.let { channel ->
         ChannelActionsDialog(
             channel = channel,
@@ -299,37 +342,39 @@ private fun LiveHeader(
     onToggleFavorites: () -> Unit,
     onToggleGrid: () -> Unit,
     onOpenPlaylists: () -> Unit,
+    onOpenGuide: () -> Unit,
+    onOpenMenu: () -> Unit,
 ) {
     val groupCount = state.groups.firstOrNull {
         it.key == (state.selectedGroup ?: LiveUiState.ALL_GROUPS_KEY)
     }?.count
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            NovaLabel(if (state.favoritesOnly) "Favoriler" else "Canlı TV")
-            Row(
-                verticalAlignment = Alignment.Bottom,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        NovaLabel(if (state.favoritesOnly) "Favoriler" else "Canlı TV")
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Text(
+                text = if (state.favoritesOnly) "Favoriler" else state.selectedGroupLabel,
+                style = NovaType.Title,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false),
+            )
+            groupCount?.let { count ->
                 Text(
-                    text = if (state.favoritesOnly) "Favoriler" else state.selectedGroupLabel,
-                    style = NovaType.Title,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
+                    text = "$count kanal",
+                    style = NovaType.Number.copy(color = NovaColors.TextDim),
+                    modifier = Modifier.padding(bottom = 3.dp),
                 )
-                groupCount?.let { count ->
-                    Text(
-                        text = "$count kanal",
-                        style = NovaType.Number.copy(color = NovaColors.TextDim),
-                        modifier = Modifier.padding(bottom = 3.dp),
-                    )
-                }
             }
         }
-
+        Spacer(Modifier.height(6.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
         NovaPill(
             label = if (state.favoritesOnly) "★ Favoriler" else "☆ Favoriler",
             onClick = onToggleFavorites,
@@ -345,6 +390,11 @@ private fun LiveHeader(
             label = "Kaynaklar",
             onClick = onOpenPlaylists,
             testTag = "open-playlists",
+        )
+        NovaPill(
+            label = "Menü",
+            onClick = onOpenMenu,
+            testTag = "open-menu",
         )
 
         // Arama en sağda: D-pad ile gezinirken metin alanına istemeden
@@ -362,6 +412,7 @@ private fun LiveHeader(
                     .tvFieldNavigation(horizontal = true)
                     .testTag("live-search"),
             )
+        }
         }
     }
 }
@@ -512,6 +563,74 @@ private fun ChannelNumberDialog(
                 )
                 NovaPill(label = "Vazgeç", onClick = onDismiss)
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun LiveMenuDialog(
+    onGuide: () -> Unit,
+    onLibrary: () -> Unit,
+    onPlaylists: () -> Unit,
+    onRecordings: () -> Unit,
+    onMultiwall: () -> Unit,
+    onSearch: () -> Unit,
+    onSettings: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        NovaPanel(width = 380.dp) {
+            NovaLabel("Menü")
+            NovaPill(
+                label = "Kütüphane",
+                onClick = onLibrary,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "open-library",
+            )
+            NovaPill(
+                label = "Rehber",
+                onClick = onGuide,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "open-guide",
+            )
+            NovaPill(
+                label = "Ara",
+                onClick = onSearch,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "open-search",
+            )
+            NovaPill(
+                label = "Ayarlar",
+                onClick = onSettings,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "open-settings",
+            )
+            NovaPill(
+                label = "Çoklu ekran",
+                onClick = onMultiwall,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "open-multiwall",
+            )
+            NovaPill(
+                label = "Kayıtlar",
+                onClick = onRecordings,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "open-recordings",
+            )
+            NovaPill(
+                label = "Kaynaklar",
+                onClick = onPlaylists,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "open-playlists",
+            )
+            NovaRule(Modifier.fillMaxWidth())
+            NovaPill(
+                label = "Kapat",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth(),
+                testTag = "menu-dismiss",
+            )
         }
     }
 }

@@ -104,6 +104,47 @@ abstract class ChannelDao {
     @Query("SELECT * FROM channel WHERE id = :id")
     abstract suspend fun byId(id: Long): ChannelEntity?
 
+    @Query("SELECT * FROM channel WHERE playlistId = :playlistId ORDER BY number IS NULL, number, name")
+    abstract suspend fun byPlaylist(playlistId: Long): List<ChannelEntity>
+
+    /** Rehber/çoklu ekran için sanallaştırılmamış kanal listesi (gizliler hariç). */
+    @Query(
+        """
+        SELECT * FROM channel
+        WHERE playlistId IN (:playlistIds)
+          AND (:group IS NULL OR groupName = :group)
+          AND id NOT IN (SELECT channelId FROM hidden_channel WHERE profileId = :profileId)
+          AND NOT EXISTS (
+              SELECT 1 FROM hidden_group hg
+              WHERE hg.profileId = :profileId
+                AND hg.playlistId = channel.playlistId
+                AND hg.groupName = channel.groupName)
+        ORDER BY number IS NULL, number, name
+        """,
+    )
+    abstract fun observeForGuide(
+        playlistIds: List<Long>,
+        group: String?,
+        profileId: Long,
+    ): Flow<List<ChannelEntity>>
+
+    @Query(
+        """
+        SELECT * FROM channel
+        WHERE playlistId IN (:playlistIds)
+          AND nameNormalized LIKE '%' || :q || '%'
+          AND id NOT IN (SELECT channelId FROM hidden_channel WHERE profileId = :profileId)
+        ORDER BY number IS NULL, number, name
+        LIMIT :limit
+        """,
+    )
+    abstract fun search(
+        playlistIds: List<Long>,
+        q: String,
+        profileId: Long,
+        limit: Int,
+    ): Flow<List<ChannelEntity>>
+
     @Query("SELECT COUNT(*) FROM channel WHERE playlistId = :playlistId")
     abstract suspend fun countByPlaylist(playlistId: Long): Int
 

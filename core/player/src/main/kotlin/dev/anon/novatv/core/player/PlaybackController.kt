@@ -150,6 +150,11 @@ class PlaybackController(private val context: Context) {
         get() = exoPlayer
 
     /** Yalnızca testlerin hazırlama sayısını görmesi için. */
+    private val _videoFrameRate = MutableStateFlow(0f)
+
+    /** Son video parçasının kare hızı; AFR eşleşmesi için. */
+    val videoFrameRate: StateFlow<Float> = _videoFrameRate.asStateFlow()
+
     internal var prepareCount = 0
         private set
 
@@ -206,6 +211,12 @@ class PlaybackController(private val context: Context) {
     fun pause() {
         exoPlayer.pause()
     }
+
+    /** VOD ilerlemesi için anlık konum ve süre; canlı yayında süre 0'dır. */
+    val positionMs: Long get() = exoPlayer.currentPosition
+
+    val durationMs: Long
+        get() = exoPlayer.duration.let { if (it > 0) it else 0L }
 
     fun seekTo(positionMs: Long) {
         exoPlayer.seekTo(positionMs.coerceAtLeast(0))
@@ -333,6 +344,13 @@ class PlaybackController(private val context: Context) {
         lastTracks = tracks
         _audioTracks.value = choices(tracks, C.TRACK_TYPE_AUDIO, "Ses")
         _subtitleTracks.value = choices(tracks, C.TRACK_TYPE_TEXT, "Altyazı")
+
+        val video = tracks.groups.firstOrNull { group ->
+            group.type == C.TRACK_TYPE_VIDEO && group.length > 0
+        }?.getTrackFormat(0)
+        if (video != null && video.frameRate > 0) {
+            _videoFrameRate.value = video.frameRate
+        }
     }
 
     private fun choices(tracks: Tracks, type: Int, fallback: String): List<TrackChoice> = buildList {

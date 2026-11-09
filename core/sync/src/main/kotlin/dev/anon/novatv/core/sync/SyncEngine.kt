@@ -17,7 +17,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
 
-enum class SyncStage { AUTHENTICATING, CHANNELS, SAVING }
+enum class SyncStage { AUTHENTICATING, CHANNELS, SAVING, LIBRARY, EPG }
 
 sealed interface SyncEvent {
     data class Progress(
@@ -38,6 +38,8 @@ class SyncEngine(
     private val db: NovaDatabase,
     private val playlists: PlaylistRepository,
     private val registry: SourceAdapterRegistry,
+    private val library: LibraryRepository? = null,
+    private val epg: EpgRepository? = null,
     /** Ekran kapansa da süren senkronlar için uygulama kapsamı. */
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
@@ -90,6 +92,18 @@ class SyncEngine(
                 token = token,
                 items = channels.map { it.copy(playlistId = playlistId).toEntity(syncToken = token) },
             )
+
+            // Film/dizi ve rehber isteğe bağlı: biri başarısız olsa da kanal
+            // listesi geçerli kalır, kullanıcı canlı TV'yi izlemeye devam eder.
+            library?.let { repo ->
+                emit(SyncEvent.Progress(playlistId, SyncStage.LIBRARY, done = 0))
+                runCatching { repo.sync(playlistId) }
+            }
+            epg?.let { repo ->
+                emit(SyncEvent.Progress(playlistId, SyncStage.EPG, done = 0))
+                runCatching { repo.syncIfStale(playlistId) }
+            }
+
             finish(playlistId, SyncState.OK, null)
         } catch (e: CancellationException) {
             db.playlistDao().setSyncState(playlistId, SyncState.FAILED.name)

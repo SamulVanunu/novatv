@@ -1,6 +1,6 @@
 package dev.anon.novatv.core.model
 
-enum class ItemType { CHANNEL, MOVIE, SERIES }
+enum class ItemType { CHANNEL, MOVIE, SERIES, EPISODE }
 
 data class Channel(
     val id: Long = 0,

@@ -1,13 +1,16 @@
 package dev.anon.novatv.core.database.dao
 
 import androidx.room.Dao
+import androidx.room.Embedded
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import dev.anon.novatv.core.database.entity.EpisodeEntity
 import dev.anon.novatv.core.database.entity.FavoriteEntity
 import dev.anon.novatv.core.database.entity.HiddenChannelEntity
 import dev.anon.novatv.core.database.entity.HiddenGroupEntity
+import dev.anon.novatv.core.database.entity.MovieEntity
 import dev.anon.novatv.core.database.entity.WatchHistoryEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -63,4 +66,74 @@ abstract class UserDataDao {
         "SELECT itemId FROM watch_history WHERE profileId = :profileId AND itemType = :itemType ORDER BY updatedAt DESC LIMIT :limit",
     )
     abstract fun observeRecent(profileId: Long, itemType: String, limit: Int): Flow<List<Long>>
+
+    @Query(
+        """
+        SELECT movie.*, wh.positionMs AS positionMs, wh.durationMs AS durationMs,
+               wh.updatedAt AS updatedAt
+        FROM movie
+        INNER JOIN watch_history wh
+            ON wh.itemId = movie.id AND wh.itemType = 'MOVIE' AND wh.profileId = :profileId
+        WHERE wh.durationMs > 0 AND wh.positionMs < wh.durationMs * 0.95
+        ORDER BY wh.updatedAt DESC LIMIT :limit
+        """,
+    )
+    abstract fun continueMovies(profileId: Long, limit: Int): Flow<List<MovieProgressRow>>
+
+    @Query(
+        """
+        SELECT episode.*, wh.positionMs AS positionMs, wh.durationMs AS durationMs,
+               wh.updatedAt AS updatedAt
+        FROM episode
+        INNER JOIN watch_history wh
+            ON wh.itemId = episode.id AND wh.itemType = 'EPISODE' AND wh.profileId = :profileId
+        WHERE wh.durationMs > 0 AND wh.positionMs < wh.durationMs * 0.95
+        ORDER BY wh.updatedAt DESC LIMIT :limit
+        """,
+    )
+    abstract fun continueEpisodes(profileId: Long, limit: Int): Flow<List<EpisodeProgressRow>>
+
+    @Query(
+        "SELECT * FROM watch_history WHERE profileId = :profileId AND itemType = :itemType ORDER BY updatedAt DESC LIMIT :limit",
+    )
+    abstract fun observeHistory(
+        profileId: Long,
+        itemType: String,
+        limit: Int,
+    ): Flow<List<WatchHistoryEntity>>
+
+    @Query(
+        "SELECT * FROM watch_history WHERE profileId = :profileId AND itemType = :itemType AND itemId = :itemId",
+    )
+    abstract suspend fun history(
+        profileId: Long,
+        itemType: String,
+        itemId: Long,
+    ): WatchHistoryEntity?
+
+    @Query("DELETE FROM watch_history WHERE profileId = :profileId")
+    abstract suspend fun clearHistory(profileId: Long)
+
+    @Query("DELETE FROM favorite WHERE profileId = :profileId")
+    abstract suspend fun clearFavorites(profileId: Long)
+
+    @Query("DELETE FROM hidden_channel WHERE profileId = :profileId")
+    abstract suspend fun clearHiddenChannels(profileId: Long)
+
+    @Query("DELETE FROM hidden_group WHERE profileId = :profileId")
+    abstract suspend fun clearHiddenGroups(profileId: Long)
 }
+
+data class MovieProgressRow(
+    @Embedded val movie: MovieEntity,
+    val positionMs: Long,
+    val durationMs: Long,
+    val updatedAt: Long,
+)
+
+data class EpisodeProgressRow(
+    @Embedded val episode: EpisodeEntity,
+    val positionMs: Long,
+    val durationMs: Long,
+    val updatedAt: Long,
+)
