@@ -72,7 +72,14 @@ class M3uParser {
                         val url = line
                         entry.userAgent?.let { userAgents[url] = it }
                         entry.referrer?.let { referrers[url] = it }
-                        onChannel(entry.toChannel(playlistId, url))
+                        onChannel(
+                            entry.toChannel(
+                                playlistId = playlistId,
+                                url = url,
+                                userAgent = entry.userAgent,
+                                referrer = entry.referrer,
+                            ),
+                        )
                         parsed++
                     }
                 }
@@ -159,7 +166,12 @@ class M3uParser {
             }
         }
 
-        fun toChannel(playlistId: Long, url: String) = Channel(
+        fun toChannel(
+            playlistId: Long,
+            url: String,
+            userAgent: String? = null,
+            referrer: String? = null,
+        ) = Channel(
             playlistId = playlistId,
             remoteId = url,
             number = attrs["tvg-chno"]?.toIntOrNull() ?: attrs["channel-number"]?.toIntOrNull(),
@@ -175,6 +187,8 @@ class M3uParser {
                 ?: attrs["timeshift"]?.toIntOrNull()
                 ?: 0,
             format = formatOf(url),
+            streamUserAgent = userAgent,
+            streamReferer = referrer,
         )
 
         private fun formatOf(url: String): StreamFormat {

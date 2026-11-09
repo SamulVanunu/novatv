@@ -22,6 +22,7 @@ import dev.anon.novatv.core.settings.PreferenceStore
 import dev.anon.novatv.core.sync.ChannelFilter
 import dev.anon.novatv.core.sync.ChannelRepository
 import dev.anon.novatv.core.sync.GroupItem
+import dev.anon.novatv.core.sync.ResolvedStream
 import dev.anon.novatv.ui.theme.NovaTheme
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -76,7 +77,7 @@ class PlayerOsdTest {
             playbackController = controller,
             repository = FakeChannelRepository(),
             resolver = ChannelStreamResolver {
-                "http://127.0.0.1:${server.localPort}/live.m3u8"
+                ResolvedStream("http://127.0.0.1:${server.localPort}/live.m3u8")
             },
             preferenceStore = preferences,
         )

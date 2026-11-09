@@ -223,6 +223,7 @@ class PlaylistFormTest {
 
     private class MapCredentialStore : CredentialStore {
         val values = mutableMapOf<Long, Credentials>()
+        val urls = mutableMapOf<Long, String>()
 
         override suspend fun put(playlistId: Long, credentials: Credentials) {
             values[playlistId] = credentials
@@ -232,6 +233,17 @@ class PlaylistFormTest {
 
         override suspend fun remove(playlistId: Long) {
             values.remove(playlistId)
+            urls.remove(playlistId)
+        }
+
+        override suspend fun putSourceUrl(playlistId: Long, url: String) {
+            urls[playlistId] = url
+        }
+
+        override suspend fun getSourceUrl(playlistId: Long): String? = urls[playlistId]
+
+        override suspend fun removeSourceUrl(playlistId: Long) {
+            urls.remove(playlistId)
         }
     }
 }
@@ -248,6 +260,7 @@ private fun PlaylistFormHost(form: PlaylistFormViewModel) {
         onPassword = form::setPassword,
         onEpgUrl = form::setEpgUrl,
         onUserAgent = form::setUserAgent,
+        onReferer = form::setReferer,
         onSyncInterval = form::setSyncInterval,
         onTest = form::test,
         onSave = form::save,

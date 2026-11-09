@@ -43,6 +43,9 @@ class M3uParserTest {
         assertEquals(1, meta.parsed)
         assertEquals("VLC/3.0", meta.userAgents["http://a/vlc.ts"])
         assertEquals("http://ref/", meta.referrers["http://a/vlc.ts"])
+        // Başlıklar kanala da yazılmalı; oynatıcı yalnızca kanalı görür.
+        assertEquals("VLC/3.0", out.single().streamUserAgent)
+        assertEquals("http://ref/", out.single().streamReferer)
     }
 
     @Test

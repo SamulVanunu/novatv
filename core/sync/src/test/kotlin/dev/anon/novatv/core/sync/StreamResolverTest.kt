@@ -38,8 +38,32 @@ class StreamResolverTest {
 
     @Test
     fun resolveBuildsStreamUrlAtRuntime() = runTest {
-        val url = resolver(playlist()).resolve(channel(), StreamFormat.HLS)
-        assertEquals("http://stream/10.m3u8", url)
+        val stream = resolver(playlist()).resolve(channel(), StreamFormat.HLS)
+        assertEquals("http://stream/10.m3u8", stream.url)
+        assertEquals(emptyMap<String, String>(), stream.headers)
+    }
+
+    @Test
+    fun streamHeadersUsePlaylistDefaults() = runTest {
+        val stream = resolver(
+            playlist().copy(userAgent = "PlaylistUA/1", referer = "http://panel/"),
+        ).resolve(channel(), StreamFormat.HLS)
+
+        assertEquals("PlaylistUA/1", stream.headers["User-Agent"])
+        assertEquals("http://panel/", stream.headers["Referer"])
+    }
+
+    @Test
+    fun channelHeadersOverridePlaylistHeaders() = runTest {
+        val stream = resolver(
+            playlist().copy(userAgent = "PlaylistUA/1", referer = "http://panel/"),
+        ).resolve(
+            channel().copy(streamUserAgent = "ChannelUA/2", streamReferer = "http://channel/"),
+            StreamFormat.HLS,
+        )
+
+        assertEquals("ChannelUA/2", stream.headers["User-Agent"])
+        assertEquals("http://channel/", stream.headers["Referer"])
     }
 
     @Test

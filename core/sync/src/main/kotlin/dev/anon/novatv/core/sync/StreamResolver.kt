@@ -18,14 +18,27 @@ class StreamResolver(
     private val registry: SourceAdapterRegistry,
 ) {
 
-    suspend fun resolve(channel: Channel, format: StreamFormat = channel.format): String {
+    suspend fun resolve(channel: Channel, format: StreamFormat = channel.format): ResolvedStream {
         val (playlist, creds) = loadActive(channel.playlistId)
-        return registry.adapterFor(playlist, creds).streamUrl(channel, format)
+        val url = registry.adapterFor(playlist, creds).streamUrl(channel, format)
+        return ResolvedStream(url = url, headers = headersFor(channel, playlist))
     }
 
     suspend fun resolveCatchup(channel: Channel, at: Instant, minutes: Int): String? {
         val (playlist, creds) = loadActive(channel.playlistId)
         return registry.adapterFor(playlist, creds).catchupUrl(channel, at, minutes)
+    }
+
+    /**
+     * Akış isteği başlıkları. Kanal düzeyi (#EXTVLCOPT) kaynak düzeyini ezer;
+     * kaynakta tanımlı UA/Referer yoksa başlık gönderilmez, oynatıcı kendi
+     * varsayılanını kullanır.
+     */
+    private fun headersFor(channel: Channel, playlist: Playlist): Map<String, String> = buildMap {
+        (channel.streamUserAgent ?: playlist.userAgent)?.takeIf { it.isNotBlank() }
+            ?.let { put("User-Agent", it) }
+        (channel.streamReferer ?: playlist.referer)?.takeIf { it.isNotBlank() }
+            ?.let { put("Referer", it) }
     }
 
     private suspend fun loadActive(playlistId: Long): Pair<Playlist, Credentials?> {

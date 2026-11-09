@@ -27,6 +27,7 @@ data class PlaylistFormState(
     val password: String = "",
     val epgUrl: String = "",
     val userAgent: String = "",
+    val referer: String = "",
     val syncIntervalHours: String = "24",
     val testing: Boolean = false,
     val saving: Boolean = false,
@@ -73,6 +74,7 @@ class PlaylistFormViewModel(
     fun setPassword(value: String) = _state.update { it.copy(password = value, error = null) }
     fun setEpgUrl(value: String) = _state.update { it.copy(epgUrl = value) }
     fun setUserAgent(value: String) = _state.update { it.copy(userAgent = value) }
+    fun setReferer(value: String) = _state.update { it.copy(referer = value) }
     fun setSyncInterval(value: String) = _state.update { it.copy(syncIntervalHours = value.filter { ch -> ch.isDigit() }) }
 
     fun test() {
@@ -137,6 +139,7 @@ class PlaylistFormViewModel(
                             password = credentials?.password.orEmpty(),
                             epgUrl = playlist.epgUrl.orEmpty(),
                             userAgent = playlist.userAgent.orEmpty(),
+                            referer = playlist.referer.orEmpty(),
                             syncIntervalHours = playlist.syncIntervalHours.toString(),
                         )
                     }
@@ -157,6 +160,7 @@ class PlaylistFormViewModel(
         username = null,
         epgUrl = epgUrl.trim().ifBlank { null },
         userAgent = userAgent.trim().ifBlank { null },
+        referer = referer.trim().ifBlank { null },
         syncIntervalHours = syncIntervalHours.toIntOrNull()?.coerceIn(1, 168) ?: 24,
     )
 

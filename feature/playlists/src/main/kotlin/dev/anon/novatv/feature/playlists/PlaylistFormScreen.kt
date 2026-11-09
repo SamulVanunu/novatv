@@ -54,6 +54,7 @@ fun PlaylistFormScreen(
     onPassword: (String) -> Unit,
     onEpgUrl: (String) -> Unit,
     onUserAgent: (String) -> Unit,
+    onReferer: (String) -> Unit,
     onSyncInterval: (String) -> Unit,
     onTest: () -> Unit,
     onSave: () -> Unit,
@@ -154,6 +155,13 @@ fun PlaylistFormScreen(
                                         label = "User-Agent (isteğe bağlı)",
                                         placeholder = "Varsayılan: ExoPlayer",
                                         testTag = "field-user-agent",
+                                    )
+                                    FormField(
+                                        value = state.referer,
+                                        onValueChange = onReferer,
+                                        label = "Referer (isteğe bağlı)",
+                                        placeholder = "Yalnızca isteyen sağlayıcılar için",
+                                        testTag = "field-referer",
                                     )
                                     FormField(
                                         value = state.syncIntervalHours,

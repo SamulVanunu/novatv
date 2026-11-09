@@ -11,6 +11,7 @@ import dev.anon.novatv.core.player.TrackChoice
 import dev.anon.novatv.core.player.VideoAspect
 import dev.anon.novatv.core.settings.PreferenceStore
 import dev.anon.novatv.core.sync.ChannelRepository
+import dev.anon.novatv.core.sync.ResolvedStream
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,7 +24,7 @@ import kotlinx.coroutines.launch
 
 /** Kanalın yayın adresini üretir; Xtream kimliği Room'a yazılmadığı için her açılışta çözülür. */
 fun interface ChannelStreamResolver {
-    suspend fun resolve(channel: Channel): String
+    suspend fun resolve(channel: Channel): ResolvedStream
 }
 
 data class PlayerUiState(
@@ -192,9 +193,9 @@ class PlayerViewModel(
 
     private suspend fun play(channel: Channel) {
         runCatching { resolver.resolve(channel) }
-            .onSuccess { url ->
+            .onSuccess { stream ->
                 error.value = null
-                playbackController.prepare(url)
+                playbackController.prepare(stream.url, stream.headers)
             }
             .onFailure { throwable ->
                 report(throwable)

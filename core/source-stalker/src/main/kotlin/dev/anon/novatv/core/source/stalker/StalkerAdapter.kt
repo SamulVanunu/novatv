@@ -80,6 +80,7 @@ class StalkerFactory : SourceAdapterFactory {
             http = SourceHttp(
                 client = NovaHttp.client(),
                 userAgent = playlist.userAgent ?: NovaHttp.DEFAULT_USER_AGENT,
+                referer = playlist.referer,
             ),
         )
     }

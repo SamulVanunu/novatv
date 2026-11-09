@@ -118,6 +118,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onPassword = viewModel::setPassword,
                 onEpgUrl = viewModel::setEpgUrl,
                 onUserAgent = viewModel::setUserAgent,
+                onReferer = viewModel::setReferer,
                 onSyncInterval = viewModel::setSyncInterval,
                 onTest = viewModel::test,
                 onSave = viewModel::save,

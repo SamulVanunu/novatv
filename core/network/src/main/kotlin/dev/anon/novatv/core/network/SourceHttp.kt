@@ -12,6 +12,7 @@ import java.io.IOException
 class SourceHttp(
     private val client: OkHttpClient,
     private val userAgent: String = NovaHttp.DEFAULT_USER_AGENT,
+    private val referer: String? = null,
 ) {
 
     suspend fun getText(url: String, headers: Map<String, String> = emptyMap()): String =
@@ -66,6 +67,7 @@ class SourceHttp(
         Request.Builder()
             .url(url)
             .header("User-Agent", userAgent)
+            .apply { referer?.takeIf { it.isNotBlank() }?.let { header("Referer", it) } }
             .apply { headers.forEach { (k, v) -> header(k, v) } }
             .build()
 

@@ -33,6 +33,7 @@ class XtreamAdapter(
 
     private val headers: Map<String, String> = buildMap {
         playlist.userAgent?.let { put("User-Agent", it) }
+        playlist.referer?.let { put("Referer", it) }
     }
 
     override suspend fun authenticate(): SourceAccount = client.authenticate()
@@ -76,6 +77,7 @@ class XtreamFactory : SourceAdapterFactory {
             http = SourceHttp(
                 client = NovaHttp.client(),
                 userAgent = playlist.userAgent ?: NovaHttp.DEFAULT_USER_AGENT,
+                referer = playlist.referer,
             ),
         )
     }
