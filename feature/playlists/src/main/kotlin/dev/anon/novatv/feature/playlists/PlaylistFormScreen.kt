@@ -27,6 +27,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.anon.novatv.core.model.PlaylistType
+import dev.anon.novatv.ui.focus.tvFieldNavigation
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -72,7 +73,7 @@ fun PlaylistFormScreen(
                     onValueChange = onName,
                     label = { Text("Ad") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("field-name"),
+                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-name"),
                 )
 
                 Row(
@@ -95,7 +96,7 @@ fun PlaylistFormScreen(
                     onValueChange = onUrl,
                     label = { Text("URL") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("field-url"),
+                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-url"),
                 )
 
                 OutlinedTextField(
@@ -103,7 +104,7 @@ fun PlaylistFormScreen(
                     onValueChange = onUsername,
                     label = { Text(if (state.type == PlaylistType.STALKER) "MAC adresi" else "Kullanıcı adı") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("field-username"),
+                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-username"),
                 )
 
                 if (state.type == PlaylistType.XTREAM) {
@@ -113,7 +114,7 @@ fun PlaylistFormScreen(
                         label = { Text("Şifre") },
                         singleLine = true,
                         visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth().testTag("field-password"),
+                        modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-password"),
                     )
                 }
 
@@ -123,7 +124,7 @@ fun PlaylistFormScreen(
                         onValueChange = onEpgUrl,
                         label = { Text("EPG URL (isteğe bağlı)") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("field-epg"),
+                        modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-epg"),
                     )
                 }
 
@@ -132,7 +133,7 @@ fun PlaylistFormScreen(
                     onValueChange = onUserAgent,
                     label = { Text("User-Agent (isteğe bağlı)") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().testTag("field-user-agent"),
+                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-user-agent"),
                 )
 
                 OutlinedTextField(
@@ -141,7 +142,7 @@ fun PlaylistFormScreen(
                     label = { Text("Yenileme aralığı (saat)") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth().testTag("field-interval"),
+                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("field-interval"),
                 )
             }
         }

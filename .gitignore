@@ -7,3 +7,7 @@ local.properties
 .kotlin/
 .memory/
 .superpowers/
+
+keystore.properties
+*.jks
+*.keystore

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  IPTV panelleri ve yayın adresleri sıklıkla düz HTTP'dir (bkz. tasarım: "HTTP'ye izin
+  verilir, kullanıcı uyarılır"). targetSdk 35 varsayılanı cleartext'i kapatır; bu yüzden
+  açıkça izin veriliyor. Kimlik bilgileri yalnızca kullanıcının girdiği kaynaklara gider.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

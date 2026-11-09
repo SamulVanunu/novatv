@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -44,11 +45,17 @@ fun PlayerOsd(
     onCycleBuffer: () -> Unit,
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
+    onMenuOpenChange: (Boolean) -> Unit,
     firstFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
     var audioMenu by remember { mutableStateOf(false) }
     var subtitleMenu by remember { mutableStateOf(false) }
+
+    // Menü açıkken OSD zamanlayıcısı durur; aksi hâlde menü kapanınca
+    // kullanıcı boş ekrana döner.
+    val menuOpen = audioMenu || subtitleMenu
+    LaunchedEffect(menuOpen) { onMenuOpenChange(menuOpen) }
 
     Box(
         modifier = modifier

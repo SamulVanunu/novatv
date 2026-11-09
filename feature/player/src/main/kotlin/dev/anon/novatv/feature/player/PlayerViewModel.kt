@@ -49,6 +49,7 @@ class PlayerViewModel(
     private val osdVisible = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
     private var hideJob: Job? = null
+    private var lastRecordedChannelId: Long? = null
 
     private val bufferSeconds: StateFlow<Int> = preferenceStore.playerBufferSeconds
         .catch { emit(DEFAULT_BUFFER_SECONDS) }
@@ -90,7 +91,20 @@ class PlayerViewModel(
         initialValue = PlayerUiState(),
     )
 
+    init {
+        viewModelScope.launch {
+            playbackController.state.collect { playback ->
+                val current = channel.value ?: return@collect
+                if (playback !is PlaybackState.Playing) return@collect
+                if (current.id == lastRecordedChannelId) return@collect
+                lastRecordedChannelId = current.id
+                runCatching { repository.recordWatch(current) }.onFailure(::report)
+            }
+        }
+    }
+
     fun open(channelId: Long) {
+        lastRecordedChannelId = null
         viewModelScope.launch {
             val found = runCatching { repository.byId(channelId) }
                 .onFailure(::report)
@@ -125,6 +139,16 @@ class PlayerViewModel(
     fun hideOsd() {
         hideJob?.cancel()
         osdVisible.value = false
+    }
+
+    /** Açık bir menü varken OSD'nin kapanmasını engeller. */
+    fun keepOsdVisible(pinned: Boolean) {
+        if (pinned) {
+            hideJob?.cancel()
+            osdVisible.value = true
+        } else {
+            showOsd()
+        }
     }
 
     fun seekBack(ms: Long = SEEK_BACK_STEP_MS) {

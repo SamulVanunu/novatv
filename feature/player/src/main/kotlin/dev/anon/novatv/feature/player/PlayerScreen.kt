@@ -65,6 +65,7 @@ fun PlayerScreen(
     onCycleBuffer: () -> Unit,
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
+    onMenuOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val rootFocus = remember { FocusRequester() }
@@ -93,14 +94,16 @@ fun PlayerScreen(
             .focusRequester(rootFocus)
             .focusable()
             .onPreviewKeyEvent { event ->
-                if (event.type != KeyEventType.KeyUp) return@onPreviewKeyEvent false
+                // Geri tuşu KeyDown'da işlenir: parça menüsü gibi bir diyalog
+                // kapandığında artan KeyUp olayı oynatıcıdan çıkarmasın.
                 when {
-                    event.key == Key.Back -> {
+                    event.key == Key.Back && event.type == KeyEventType.KeyDown -> {
                         if (state.osdVisible) onHideOsd() else onBackToChannels()
                         true
                     }
 
-                    (event.key == Key.Info || event.key == Key.DirectionCenter) && !state.osdVisible -> {
+                    (event.key == Key.Info || event.key == Key.DirectionCenter) &&
+                        event.type == KeyEventType.KeyUp && !state.osdVisible -> {
                         onToggleOsd()
                         true
                     }
@@ -139,6 +142,7 @@ fun PlayerScreen(
                 onCycleBuffer = onCycleBuffer,
                 onSelectAudio = onSelectAudio,
                 onSelectSubtitle = onSelectSubtitle,
+                onMenuOpenChange = onMenuOpenChange,
                 firstFocusRequester = osdFocus,
             )
         }

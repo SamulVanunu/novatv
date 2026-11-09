@@ -11,6 +11,10 @@ import androidx.tv.material3.MaterialTheme
 import dev.anon.novatv.ui.theme.NovaTheme
 
 class MainActivity : ComponentActivity() {
+
+    private val graph: NovaGraph
+        get() = (application as NovaApplication).graph
+
     @OptIn(ExperimentalTvMaterial3Api::class)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -21,7 +25,7 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background),
                 ) {
-                    NovaNavHost()
+                    NovaNavHost(graph)
                 }
             }
         }

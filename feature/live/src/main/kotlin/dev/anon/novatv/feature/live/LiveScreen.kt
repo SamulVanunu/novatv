@@ -27,6 +27,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -46,6 +47,7 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Text
 import dev.anon.novatv.core.model.Channel
+import dev.anon.novatv.ui.focus.tvFieldNavigation
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 
 @OptIn(ExperimentalTvMaterial3Api::class)
@@ -63,9 +65,11 @@ fun LiveScreen(
     onHideGroup: (String) -> Unit,
     onSetNumber: (Channel, Int?) -> Unit,
     onChannelFocused: (Channel?) -> Unit,
+    onOpenPlaylists: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val railFocus = remember { FocusRequester() }
+    val emptyFocus = remember { FocusRequester() }
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
     var pendingFirstFocus by remember { mutableStateOf(true) }
@@ -117,19 +121,26 @@ fun LiveScreen(
                 onQueryChange = onQueryChange,
                 onToggleFavorites = onToggleFavorites,
                 onToggleGrid = onToggleGrid,
+                onOpenPlaylists = onOpenPlaylists,
             )
 
             Spacer(Modifier.height(16.dp))
 
-            when {
-                channels.loadState.refresh is LoadState.Loading -> Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) { CircularProgressIndicator() }
+            val noSource = state.groups.isEmpty() && channels.itemCount == 0
+            val loading = channels.loadState.refresh is LoadState.Loading
 
-                channels.itemCount == 0 -> Box(
+            LaunchedEffect(noSource) {
+                if (noSource) {
+                    // Kaynak yok: ilk D-pad odağı doğrudan "Kaynak ekle"ye gitsin.
+                    runCatching { emptyFocus.requestFocus() }
+                }
+            }
+
+            when {
+                channels.itemCount == 0 && (noSource || !loading) -> Column(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         text = "Bu grupta kanal yok",
@@ -137,7 +148,21 @@ fun LiveScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.testTag("empty-state"),
                     )
+                    Spacer(Modifier.height(16.dp))
+                    Button(
+                        onClick = onOpenPlaylists,
+                        modifier = Modifier
+                            .focusRequester(emptyFocus)
+                            .testTag("empty-open-playlists"),
+                    ) {
+                        Text("Kaynak ekle veya yenile")
+                    }
                 }
+
+                loading -> Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
 
                 state.grid -> LazyVerticalGrid(
                     columns = GridCells.Fixed(GRID_COLUMNS),
@@ -242,30 +267,13 @@ private fun LiveHeader(
     onQueryChange: (String) -> Unit,
     onToggleFavorites: () -> Unit,
     onToggleGrid: () -> Unit,
+    onOpenPlaylists: () -> Unit,
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(
-            text = state.selectedGroupLabel,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier.width(220.dp),
-        )
-
-        NovaTextFieldTheme {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = onQueryChange,
-                label = { Text("Ara") },
-                singleLine = true,
-                modifier = Modifier.width(320.dp).testTag("live-search"),
-            )
-        }
-
         Button(
             onClick = onToggleFavorites,
             modifier = Modifier.testTag("toggle-favorites"),
@@ -278,6 +286,27 @@ private fun LiveHeader(
             modifier = Modifier.testTag("toggle-grid"),
         ) {
             Text(if (state.grid) "Liste" else "Izgara")
+        }
+
+        Spacer(Modifier.weight(1f))
+
+        Button(
+            onClick = onOpenPlaylists,
+            modifier = Modifier.testTag("open-playlists"),
+        ) {
+            Text("Kaynaklar")
+        }
+
+        // Arama en sağda: D-pad ile gezinirken metin alanına istemeden
+        // girilmesin (odaklanınca klavye açılır).
+        NovaTextFieldTheme {
+            OutlinedTextField(
+                value = state.query,
+                onValueChange = onQueryChange,
+                label = { Text("Ara") },
+                singleLine = true,
+                modifier = Modifier.width(220.dp).tvFieldNavigation(horizontal = true).testTag("live-search"),
+            )
         }
     }
 }
@@ -358,7 +387,7 @@ private fun ChannelNumberDialog(
                     label = { Text("Numara") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth().testTag("number-input"),
+                    modifier = Modifier.fillMaxWidth().tvFieldNavigation().testTag("number-input"),
                 )
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {

@@ -47,6 +47,25 @@ class PlayerInstrumentedTest {
         assertTrue("hata nedeni boş olmamalı", failed.reason.isNotBlank())
     }
 
+    /**
+     * Var olmayan akış adresi (HTTP 404) çökmeden yeniden denenebilir hata
+     * durumuna düşmeli. Mock panel çalışmıyorsa test atlanır.
+     */
+    @Test
+    fun http404EndsInRetryableFailure() {
+        val base = mockServerBase()
+        assumeTrue("mock panel erişilebilir değil (Task 14)", base != null)
+
+        onMain { controller.prepare("$base/missing.m3u8") }
+
+        val failed = runBlocking {
+            withTimeout(30_000) { controller.state.first { it is PlaybackState.Failed } }
+        } as PlaybackState.Failed
+
+        assertTrue("HTTP 404 yeniden denenebilir olmalı", failed.retryable)
+        assertTrue("hata nedeni HTTP 404 içermeli, şu an: ${failed.reason}", failed.reason.contains("404"))
+    }
+
     @Test
     fun hlsFixturePlaysExposesAudioTrackAndSurvivesSeekBack() {
         val hlsUrl = InstrumentationRegistry.getArguments().getString("hlsUrl")
@@ -71,6 +90,23 @@ class PlayerInstrumentedTest {
             "geri sarma durumu bozmamalı, şu an: $after",
             after is PlaybackState.Playing || after is PlaybackState.Buffering,
         )
+    }
+
+    /** Emülatörde host 10.0.2.2; `adb reverse` çalışan cihazda 127.0.0.1. */
+    private fun mockServerBase(): String? = listOf(
+        "http://10.0.2.2:8089",
+        "http://127.0.0.1:8089",
+    ).firstOrNull { base ->
+        runCatching {
+            val connection = java.net.URL("$base/health").openConnection() as java.net.HttpURLConnection
+            connection.connectTimeout = 2_000
+            connection.readTimeout = 2_000
+            try {
+                connection.responseCode == 200
+            } finally {
+                connection.disconnect()
+            }
+        }.getOrDefault(false)
     }
 
     private fun onMain(block: () -> Unit) {

@@ -38,6 +38,7 @@ fun PlaylistsScreen(
     onMoveUp: (Playlist) -> Unit,
     onMoveDown: (Playlist) -> Unit,
     onDelete: (Playlist) -> Unit,
+    onBackToLive: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
@@ -53,6 +54,10 @@ fun PlaylistsScreen(
             Spacer(Modifier.width(32.dp))
             Button(onClick = onAdd, modifier = Modifier.testTag("add-source")) {
                 Text("Kaynak ekle")
+            }
+            Spacer(Modifier.width(12.dp))
+            Button(onClick = onBackToLive, modifier = Modifier.testTag("back-to-live")) {
+                Text("Canlı TV")
             }
         }
 

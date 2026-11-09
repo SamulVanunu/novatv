@@ -96,6 +96,7 @@ class PlayerOsdTest {
                     onCycleBuffer = viewModel::cycleBuffer,
                     onSelectAudio = viewModel::selectAudio,
                     onSelectSubtitle = viewModel::selectSubtitle,
+                    onMenuOpenChange = viewModel::keepOsdVisible,
                 )
             }
         }

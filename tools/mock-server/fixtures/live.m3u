@@ -1,0 +1,7 @@
+#EXTM3U url-tvg="http://127.0.0.1:8089/xmltv.php"
+#EXTINF:-1 tvg-id="trt1" tvg-logo="http://127.0.0.1:8089/logo/trt1.png" group-title="Ulusal",TRT 1
+http://127.0.0.1:8089/live/demo/demo/1.ts
+#EXTINF:-1 tvg-id="trtspor" tvg-logo="http://127.0.0.1:8089/logo/trtspor.png" group-title="Spor",TRT Spor
+http://127.0.0.1:8089/live/demo/demo/2.ts
+#EXTINF:-1 tvg-id="belgesel" group-title="Belgesel",Doğa TV
+http://127.0.0.1:8089/live/demo/demo/3.ts

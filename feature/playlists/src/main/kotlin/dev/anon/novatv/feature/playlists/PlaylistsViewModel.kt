@@ -42,9 +42,8 @@ class PlaylistsViewModel(
     }
 
     fun refresh(playlist: Playlist) {
-        viewModelScope.launch {
-            runCatching { engine.sync(playlist.id) }
-        }
+        // Ekran hemen kapansa da senkron tamamlanmalı.
+        engine.requestSync(playlist.id)
     }
 
     fun setActive(playlist: Playlist, active: Boolean) {

@@ -5,9 +5,14 @@ import dev.anon.novatv.core.database.mapper.toEntity
 import dev.anon.novatv.core.model.SyncState
 import dev.anon.novatv.core.source.SourceAdapterRegistry
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicLong
@@ -33,6 +38,8 @@ class SyncEngine(
     private val db: NovaDatabase,
     private val playlists: PlaylistRepository,
     private val registry: SourceAdapterRegistry,
+    /** Ekran kapansa da süren senkronlar için uygulama kapsamı. */
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
 ) {
 
     private val mutex = Mutex()
@@ -40,6 +47,14 @@ class SyncEngine(
     private val tokenSequence = AtomicLong(System.currentTimeMillis())
 
     fun events(): Flow<SyncEvent> = eventsFlow.asSharedFlow()
+
+    /**
+     * Ekrandan bağımsız senkron başlatır. Kullanıcı "Yenile"ye basıp hemen
+     * kanal listesine dönse bile indirme sürer; sonuç Room'a yazılır.
+     */
+    fun requestSync(playlistId: Long): Job = scope.launch {
+        runCatching { sync(playlistId) }
+    }
 
     /** Aynı anda tek senkron; ikinci çağrı kilitte bekler, çakışmaz. */
     suspend fun sync(playlistId: Long): SyncState = mutex.withLock {
