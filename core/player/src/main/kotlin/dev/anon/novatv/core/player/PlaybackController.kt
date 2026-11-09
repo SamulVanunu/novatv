@@ -13,6 +13,7 @@ import androidx.media3.common.Timeline
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.datasource.DataSource
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.HttpDataSource
 import androidx.media3.exoplayer.DefaultLoadControl
@@ -24,7 +25,9 @@ import androidx.media3.exoplayer.mediacodec.MediaCodecInfo
 import androidx.media3.exoplayer.mediacodec.MediaCodecSelector
 import androidx.media3.exoplayer.mediacodec.MediaCodecUtil
 import androidx.media3.exoplayer.source.MediaSource
+import androidx.media3.exoplayer.source.MergingMediaSource
 import androidx.media3.exoplayer.source.ProgressiveMediaSource
+import androidx.media3.exoplayer.source.SingleSampleMediaSource
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy
 import androidx.media3.exoplayer.util.EventLogger
@@ -377,7 +380,7 @@ class PlaybackController(private val context: Context) {
         subtitle: SubtitleSpec?,
     ): MediaSource {
         val mediaItem = mediaItemFor(url, subtitle)
-        return mediaSourceFor(
+        val base = mediaSourceFor(
             url = url,
             hls = {
                 HlsMediaSource.Factory(dataSourceFactory(headers))
@@ -395,6 +398,19 @@ class PlaybackController(private val context: Context) {
                     .createMediaSource(mediaItem)
             },
         )
+        val spec = subtitle ?: return base
+        // Kaynak fabrikaları doğrudan kurulduğunda MediaItem'daki altyazı
+        // yapılandırmasını birleştirmez; yan dosyayı ayrı bir kaynak olarak ekle.
+        val subtitleSource = SingleSampleMediaSource.Factory(DefaultDataSource.Factory(context))
+            .setLoadErrorHandlingPolicy(loadErrorPolicy())
+            .createMediaSource(
+                MediaItem.SubtitleConfiguration.Builder(spec.uri)
+                    .setMimeType(spec.mimeType)
+                    .setLanguage(spec.language)
+                    .build(),
+                C.TIME_UNSET,
+            )
+        return MergingMediaSource(base, subtitleSource)
     }
 
     private fun loadErrorPolicy() = DefaultLoadErrorHandlingPolicy(RETRY_COUNT)

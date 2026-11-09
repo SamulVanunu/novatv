@@ -2,6 +2,7 @@ package dev.anon.novatv.core.player
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import android.net.Uri
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -45,6 +46,42 @@ class PlayerInstrumentedTest {
 
         assertTrue("bağlantı hatası yeniden denenebilir olmalı", failed.retryable)
         assertTrue("hata nedeni boş olmamalı", failed.reason.isNotBlank())
+    }
+
+    /**
+     * Harici SRT, akışa yan yüklenince parça listesinde görünmeli.
+     * Mock panel erişilebilir değilse test atlanır.
+     */
+    @Test
+    fun externalSrtAppearsAsSubtitleTrack() {
+        val base = mockServerBase()
+        assumeTrue("mock panel erişilebilir değil (Task 14)", base != null)
+
+        onMain {
+            controller.prepare(
+                url = "$base/hls/index.m3u8",
+                subtitle = SubtitleSpec(
+                    uri = Uri.parse("$base/hls/test.srt"),
+                    mimeType = "application/x-subrip",
+                    language = "tr",
+                ),
+            )
+        }
+
+        runBlocking {
+            withTimeout(20_000) { controller.state.first { it is PlaybackState.Playing } }
+        }
+
+        val tracks = runBlocking {
+            withTimeout(20_000) {
+                controller.subtitleTracks.first { list -> list.any { it.language == "tr" } }
+            }
+        }
+
+        assertTrue(
+            "yan yüklenen SRT parça listesinde olmalı, şu an: $tracks",
+            tracks.any { it.language == "tr" },
+        )
     }
 
     /**
