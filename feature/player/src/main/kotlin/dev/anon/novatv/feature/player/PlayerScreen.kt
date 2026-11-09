@@ -1,13 +1,8 @@
 package dev.anon.novatv.feature.player
 
-import android.app.Activity
-import android.app.PictureInPictureParams
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
-import android.util.Rational
-import androidx.annotation.RequiresApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,11 +13,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -65,16 +64,38 @@ fun PlayerScreen(
     onRetry: () -> Unit,
     onBackToChannels: () -> Unit,
     onSeekBack: () -> Unit,
+    onSeekBackMinute: () -> Unit = onSeekBack,
     onCycleAspect: () -> Unit,
     onCycleBuffer: () -> Unit,
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
+    onPickSubtitleFile: () -> Unit = {},
     onMenuOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val rootFocus = remember { FocusRequester() }
     val osdFocus = remember { FocusRequester() }
     val retryFocus = remember { FocusRequester() }
+    val activity = LocalContext.current.findActivity()
+    val inPip by PlayerPip.inPip.collectAsState()
+
+    // PiP: API 31+ otomatik giriş, alt sürümlerde onUserLeaveHint.
+    val playing = state.playback is PlaybackState.Playing || state.playback is PlaybackState.Buffering
+    LaunchedEffect(playing, state.playback is PlaybackState.Failed) {
+        PlayerPip.active = state.playback !is PlaybackState.Failed
+        PlayerPip.playing = playing
+        activity?.updatePictureInPictureParams(playing)
+    }
+    DisposableEffect(activity) {
+        onDispose {
+            PlayerPip.active = false
+            PlayerPip.playing = false
+            activity?.updatePictureInPictureParams(false)
+        }
+    }
+    LaunchedEffect(inPip) {
+        if (inPip) onHideOsd()
+    }
 
     LaunchedEffect(state.osdVisible) {
         // Hedef düğme kompoze olduktan sonra odak iste.
@@ -145,19 +166,48 @@ fun PlayerScreen(
             )
         }
 
-        if (state.osdVisible) {
+        state.notice?.let { message ->
+            NoticeBanner(
+                message = message,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 24.dp),
+            )
+        }
+
+        if (state.osdVisible && !inPip) {
             PlayerOsd(
                 state = state,
                 onBackToChannels = onBackToChannels,
                 onSeekBack = onSeekBack,
+                onSeekBackMinute = onSeekBackMinute,
                 onCycleAspect = onCycleAspect,
                 onCycleBuffer = onCycleBuffer,
                 onSelectAudio = onSelectAudio,
                 onSelectSubtitle = onSelectSubtitle,
+                onPickSubtitleFile = onPickSubtitleFile,
                 onMenuOpenChange = onMenuOpenChange,
                 firstFocusRequester = osdFocus,
             )
         }
+    }
+}
+
+/** Donanım→yazılım geçişi gibi sessiz kalmaması gereken oynatıcı bildirimleri. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun NoticeBanner(message: String, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .background(NovaColors.Surface.copy(alpha = 0.94f), RoundedCornerShape(999.dp))
+            .border(1.dp, NovaColors.Accent.copy(alpha = 0.7f), RoundedCornerShape(999.dp))
+            .padding(horizontal = 18.dp, vertical = 10.dp)
+            .testTag("player-notice"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Text("i", style = NovaType.Title.copy(color = NovaColors.Accent))
+        Text(message, style = NovaType.Small.copy(color = NovaColors.TextMuted))
     }
 }
 
@@ -252,20 +302,3 @@ private fun VideoAspect.resizeMode(): Int = when (this) {
     VideoAspect.ZOOM -> AspectRatioFrameLayout.RESIZE_MODE_ZOOM
 }
 
-/** API 26+ ve PiP destekli cihazlarda oynatıcıyı küçük pencereye alır. */
-fun Activity.enterPlayerPictureInPicture(aspect: Rational = Rational(16, 9)) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O &&
-        packageManager.hasSystemFeature(PackageManager.FEATURE_PICTURE_IN_PICTURE)
-    ) {
-        enterPip(aspect)
-    }
-}
-
-@RequiresApi(Build.VERSION_CODES.O)
-private fun Activity.enterPip(aspect: Rational) {
-    enterPictureInPictureMode(
-        PictureInPictureParams.Builder()
-            .setAspectRatio(aspect)
-            .build(),
-    )
-}

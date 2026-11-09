@@ -1,5 +1,9 @@
 package dev.anon.novatv.app
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -31,6 +35,18 @@ import dev.anon.novatv.feature.playlists.PlaylistsViewModel
 
 object Routes {
     const val LIVE = "live"
+}
+
+/** Seçilen dosyanın uzantısına göre Media3 altyazı MIME türü. */
+private fun subtitleMimeType(context: Context, uri: Uri): String {
+    val name = (uri.lastPathSegment ?: uri.path.orEmpty()).lowercase()
+    return when {
+        name.endsWith(".srt") -> "application/x-subrip"
+        name.endsWith(".vtt") -> "text/vtt"
+        name.endsWith(".ssa") -> "text/x-ssa"
+        name.endsWith(".ass") -> "text/x-ass"
+        else -> context.contentResolver.getType(uri) ?: "application/x-subrip"
+    }
 }
 
 @Composable
@@ -154,6 +170,11 @@ fun NovaNavHost(graph: NovaGraph) {
             )
             LaunchedEffect(channelId) { viewModel.open(channelId) }
             val state by viewModel.state.collectAsStateWithLifecycle()
+            val subtitlePicker = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument(),
+            ) { uri ->
+                if (uri != null) viewModel.setExternalSubtitle(uri, subtitleMimeType(context, uri))
+            }
             PlayerScreen(
                 state = state,
                 controller = controller,
@@ -165,10 +186,12 @@ fun NovaNavHost(graph: NovaGraph) {
                     if (!navController.popBackStack()) navController.navigate(Routes.LIVE)
                 },
                 onSeekBack = { viewModel.seekBack() },
+                onSeekBackMinute = viewModel::seekBackMinute,
                 onCycleAspect = viewModel::cycleAspect,
                 onCycleBuffer = viewModel::cycleBuffer,
                 onSelectAudio = viewModel::selectAudio,
                 onSelectSubtitle = viewModel::selectSubtitle,
+                onPickSubtitleFile = { subtitlePicker.launch(arrayOf("*/*")) },
                 onMenuOpenChange = viewModel::keepOsdVisible,
             )
         }

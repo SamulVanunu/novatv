@@ -50,10 +50,12 @@ fun PlayerOsd(
     state: PlayerUiState,
     onBackToChannels: () -> Unit,
     onSeekBack: () -> Unit,
+    onSeekBackMinute: () -> Unit = onSeekBack,
     onCycleAspect: () -> Unit,
     onCycleBuffer: () -> Unit,
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
+    onPickSubtitleFile: () -> Unit = {},
     onMenuOpenChange: (Boolean) -> Unit,
     firstFocusRequester: FocusRequester,
     modifier: Modifier = Modifier,
@@ -182,6 +184,11 @@ fun PlayerOsd(
                         onClick = onSeekBack,
                         testTag = "osd-seek-back",
                     )
+                    NovaPill(
+                        label = "−60 sn",
+                        onClick = onSeekBackMinute,
+                        testTag = "osd-seek-minute",
+                    )
                 }
 
                 Box(
@@ -234,6 +241,10 @@ fun PlayerOsd(
             title = "Altyazı",
             choices = state.subtitleTracks,
             allowOff = true,
+            extraAction = "Dosyadan seç…" to {
+                subtitleMenu = false
+                onPickSubtitleFile()
+            },
             onSelect = {
                 onSelectSubtitle(it)
                 subtitleMenu = false
@@ -263,6 +274,7 @@ private fun TrackMenuDialog(
     onSelect: (String?) -> Unit,
     onDismiss: () -> Unit,
     allowOff: Boolean = false,
+    extraAction: Pair<String, () -> Unit>? = null,
 ) {
     Dialog(onDismissRequest = onDismiss) {
         NovaPanel {
@@ -287,6 +299,14 @@ private fun TrackMenuDialog(
                     label = "Kapalı",
                     onClick = { onSelect(null) },
                     modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            extraAction?.let { (label, action) ->
+                NovaPill(
+                    label = label,
+                    onClick = action,
+                    modifier = Modifier.fillMaxWidth(),
+                    testTag = "osd-subtitle-file",
                 )
             }
             NovaPill(

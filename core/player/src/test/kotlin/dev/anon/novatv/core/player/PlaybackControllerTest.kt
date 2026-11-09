@@ -1,3 +1,5 @@
+@file:OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package dev.anon.novatv.core.player
 
 import androidx.media3.common.PlaybackException
@@ -93,6 +95,31 @@ class PlaybackControllerTest {
         } finally {
             controller.release()
         }
+    }
+
+    @Test
+    fun externalSubtitleIsAttachedToMediaItem() {
+        val spec = SubtitleSpec(
+            uri = Uri.parse("content://docs/42"),
+            mimeType = "application/x-subrip",
+            language = "tr",
+        )
+
+        val item = mediaItemFor("http://example.com/live/index.m3u8", spec)
+
+        val configured = item.localConfiguration!!.subtitleConfigurations
+        assertEquals(1, configured.size)
+        val subtitle = configured.single()
+        assertEquals(Uri.parse("content://docs/42"), subtitle.uri)
+        assertEquals("application/x-subrip", subtitle.mimeType)
+        assertEquals("tr", subtitle.language)
+    }
+
+    @Test
+    fun mediaItemWithoutSubtitleHasNoTrackConfigurations() {
+        val item = mediaItemFor("http://example.com/live/index.m3u8", null)
+
+        assertTrue(item.localConfiguration!!.subtitleConfigurations.isEmpty())
     }
 
     @Test

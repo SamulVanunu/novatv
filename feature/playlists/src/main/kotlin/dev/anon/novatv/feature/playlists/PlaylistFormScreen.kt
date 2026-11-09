@@ -197,7 +197,7 @@ fun PlaylistFormScreen(
                             NovaLabel("Not")
                             Note("Kanallar kaydedilince arka planda çekilir, Canlı TV'de görünür.")
                             Note("Kimlik bilgileri cihazda şifreli saklanır.")
-                            Note("Yayın adresleri veritabanına yazılmaz.")
+                            Note("Şifre taşıyan liste adresi yalnızca şifreli depoda tutulur.")
 
                             state.connectionStatus?.let { status ->
                                 Spacer(Modifier.height(4.dp))

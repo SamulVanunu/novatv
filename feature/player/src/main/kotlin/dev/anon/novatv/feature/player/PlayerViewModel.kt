@@ -1,5 +1,6 @@
 package dev.anon.novatv.feature.player
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
@@ -7,6 +8,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import dev.anon.novatv.core.model.Channel
 import dev.anon.novatv.core.player.PlaybackController
 import dev.anon.novatv.core.player.PlaybackState
+import dev.anon.novatv.core.player.SubtitleSpec
 import dev.anon.novatv.core.player.TrackChoice
 import dev.anon.novatv.core.player.VideoAspect
 import dev.anon.novatv.core.settings.PreferenceStore
@@ -17,8 +19,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -37,6 +41,8 @@ data class PlayerUiState(
     val bufferSeconds: Int = 30,
     val canSeekBack: Boolean = false,
     val error: String? = null,
+    /** Donanım→yazılım geçişi gibi kısa ömürlü oynatıcı bildirimi. */
+    val notice: String? = null,
 )
 
 class PlayerViewModel(
@@ -51,6 +57,7 @@ class PlayerViewModel(
     private val error = MutableStateFlow<String?>(null)
     private var hideJob: Job? = null
     private var lastRecordedChannelId: Long? = null
+    private var externalSubtitle: SubtitleSpec? = null
 
     private val bufferSeconds: StateFlow<Int> = preferenceStore.playerBufferSeconds
         .catch { emit(DEFAULT_BUFFER_SECONDS) }
@@ -68,12 +75,16 @@ class PlayerViewModel(
         playbackController.canSeekBack,
     ) { visible, aspect, seekBack -> OsdInfo(visible, aspect, seekBack) }
 
+    private val messages = combine(error, playbackController.notice) { failure, notice ->
+        failure to notice
+    }
+
     val state: StateFlow<PlayerUiState> = combine(
         channel,
         playbackInfo,
         osdInfo,
         bufferSeconds,
-        error,
+        messages,
     ) { channel, playback, osd, buffer, message ->
         PlayerUiState(
             channel = channel,
@@ -84,7 +95,8 @@ class PlayerViewModel(
             aspect = osd.aspect,
             bufferSeconds = buffer,
             canSeekBack = osd.canSeekBack,
-            error = message,
+            error = message.first,
+            notice = message.second,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -93,6 +105,13 @@ class PlayerViewModel(
     )
 
     init {
+        // Bildirim kalıcı olmasın: birkaç saniye görünür, sonra kendiliğinden kapanır.
+        viewModelScope.launch {
+            playbackController.notice.filterNotNull().collectLatest {
+                delay(NOTICE_TIMEOUT_MS)
+                playbackController.clearNotice()
+            }
+        }
         viewModelScope.launch {
             playbackController.state.collect { playback ->
                 val current = channel.value ?: return@collect
@@ -106,6 +125,7 @@ class PlayerViewModel(
 
     fun open(channelId: Long) {
         lastRecordedChannelId = null
+        externalSubtitle = null
         viewModelScope.launch {
             val found = runCatching { repository.byId(channelId) }
                 .onFailure(::report)
@@ -157,6 +177,8 @@ class PlayerViewModel(
         showOsd()
     }
 
+    fun seekBackMinute() = seekBack(SEEK_BACK_MINUTE_MS)
+
     fun selectAudio(id: String) {
         playbackController.selectAudio(id)
         showOsd()
@@ -165,6 +187,13 @@ class PlayerViewModel(
     fun selectSubtitle(id: String?) {
         playbackController.selectSubtitle(id)
         showOsd()
+    }
+
+    /** Harici altyazı dosyasını akışa ekler; yayın yeniden hazırlanır. */
+    fun setExternalSubtitle(uri: Uri, mimeType: String) {
+        externalSubtitle = SubtitleSpec(uri = uri, mimeType = mimeType)
+        val current = channel.value ?: return
+        viewModelScope.launch { play(current) }
     }
 
     fun cycleAspect() {
@@ -195,7 +224,7 @@ class PlayerViewModel(
         runCatching { resolver.resolve(channel) }
             .onSuccess { stream ->
                 error.value = null
-                playbackController.prepare(stream.url, stream.headers)
+                playbackController.prepare(stream.url, stream.headers, subtitle = externalSubtitle)
             }
             .onFailure { throwable ->
                 report(throwable)
@@ -215,7 +244,9 @@ class PlayerViewModel(
 
     companion object {
         const val OSD_TIMEOUT_MS = 4_000L
+        const val NOTICE_TIMEOUT_MS = 6_000L
         const val SEEK_BACK_STEP_MS = 10_000L
+        const val SEEK_BACK_MINUTE_MS = 60_000L
         const val DEFAULT_BUFFER_SECONDS = 30
 
         fun factory(

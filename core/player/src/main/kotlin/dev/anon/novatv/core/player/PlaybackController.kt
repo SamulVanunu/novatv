@@ -133,6 +133,7 @@ class PlaybackController(private val context: Context) {
     private var lastTracks: Tracks? = null
     private var currentUrl: String? = null
     private var currentHeaders: Map<String, String> = emptyMap()
+    private var currentSubtitle: SubtitleSpec? = null
 
     // buildPlayer() bu alanları okur; player en son kurulmalı.
     private var hardwareDecoding = true
@@ -176,12 +177,21 @@ class PlaybackController(private val context: Context) {
         exoPlayer.addAnalyticsListener(EventLogger())
     }
 
-    fun prepare(url: String, headers: Map<String, String> = emptyMap(), startPositionMs: Long = 0) {
+    fun prepare(
+        url: String,
+        headers: Map<String, String> = emptyMap(),
+        startPositionMs: Long = 0,
+        subtitle: SubtitleSpec? = null,
+    ) {
         currentUrl = url
         currentHeaders = headers
+        currentSubtitle = subtitle
         prepareCount += 1
         _state.value = PlaybackState.Buffering
-        exoPlayer.setMediaSource(createMediaSource(url, headers), startPositionMs.coerceAtLeast(0))
+        exoPlayer.setMediaSource(
+            createMediaSource(url, headers, subtitle),
+            startPositionMs.coerceAtLeast(0),
+        )
         exoPlayer.prepare()
         exoPlayer.playWhenReady = true
     }
@@ -284,7 +294,7 @@ class PlaybackController(private val context: Context) {
         exoPlayer = buildPlayer()
         prepareCount += 1
         _state.value = PlaybackState.Buffering
-        exoPlayer.setMediaSource(createMediaSource(url, currentHeaders), position)
+        exoPlayer.setMediaSource(createMediaSource(url, currentHeaders, currentSubtitle), position)
         exoPlayer.prepare()
         exoPlayer.playWhenReady = playWhenReady
     }
@@ -356,25 +366,31 @@ class PlaybackController(private val context: Context) {
         return ResolvedTrack(group, trackIndex)
     }
 
-    private fun createMediaSource(url: String, headers: Map<String, String>): MediaSource =
-        mediaSourceFor(
+    private fun createMediaSource(
+        url: String,
+        headers: Map<String, String>,
+        subtitle: SubtitleSpec?,
+    ): MediaSource {
+        val mediaItem = mediaItemFor(url, subtitle)
+        return mediaSourceFor(
             url = url,
             hls = {
                 HlsMediaSource.Factory(dataSourceFactory(headers))
                     .setLoadErrorHandlingPolicy(loadErrorPolicy())
-                    .createMediaSource(MediaItem.fromUri(it))
+                    .createMediaSource(mediaItem)
             },
             dash = {
                 DashMediaSource.Factory(dataSourceFactory(headers))
                     .setLoadErrorHandlingPolicy(loadErrorPolicy())
-                    .createMediaSource(MediaItem.fromUri(it))
+                    .createMediaSource(mediaItem)
             },
             progressive = {
                 ProgressiveMediaSource.Factory(dataSourceFactory(headers))
                     .setLoadErrorHandlingPolicy(loadErrorPolicy())
-                    .createMediaSource(MediaItem.fromUri(it))
+                    .createMediaSource(mediaItem)
             },
         )
+    }
 
     private fun loadErrorPolicy() = DefaultLoadErrorHandlingPolicy(RETRY_COUNT)
 

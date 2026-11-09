@@ -38,12 +38,11 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import coil3.compose.SubcomposeAsyncImage
 import dev.anon.novatv.core.model.Channel
-import dev.anon.novatv.ui.component.NovaBadge
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 
-/** Tek kanal satırı: logo, numara, ad, arşiv ve favori işaretleri. */
+/** Tek kanal satırı: logo, numara, ad ve favori işareti. */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun ChannelRow(
@@ -133,13 +132,7 @@ fun ChannelRow(
                         }
                     }
                 }
-                if (channel.hasArchive) {
-                    NovaBadge(
-                        text = "arşiv ${channel.archiveDays}g",
-                        color = NovaColors.Accent,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                }
+
                 if (favorite) {
                     Text(
                         text = "★",
