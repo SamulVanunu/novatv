@@ -136,6 +136,20 @@ class PlaybackControllerTest {
     }
 
     @Test
+    fun noticeRoundingTrip() {
+        val controller = PlaybackController(org.robolectric.RuntimeEnvironment.getApplication())
+        try {
+            assertEquals(null, controller.notice.value)
+            controller.showNotice("altyazı dosyası seçilemedi")
+            assertEquals("altyazı dosyası seçilemedi", controller.notice.value)
+            controller.clearNotice()
+            assertEquals(null, controller.notice.value)
+        } finally {
+            controller.release()
+        }
+    }
+
+    @Test
     fun aspectAndBufferDefaultsAreStable() {
         val controller = PlaybackController(org.robolectric.RuntimeEnvironment.getApplication())
         try {

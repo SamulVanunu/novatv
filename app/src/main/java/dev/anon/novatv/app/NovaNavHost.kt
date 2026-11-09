@@ -1,6 +1,7 @@
 package dev.anon.novatv.app
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -47,6 +48,20 @@ private fun subtitleMimeType(context: Context, uri: Uri): String {
         name.endsWith(".ass") -> "text/x-ass"
         else -> context.contentResolver.getType(uri) ?: "application/x-subrip"
     }
+}
+
+/**
+ * Android TV görüntülerinde belge seçici yerine yalnızca "uygulama yok" diyen
+ * bir saplama (stub) olabilir; onu gerçek seçici sayma.
+ */
+private fun hasDocumentPicker(context: Context): Boolean {
+    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
+        .addCategory(Intent.CATEGORY_OPENABLE)
+        .setType("*/*")
+    val resolved = context.packageManager.resolveActivity(intent, 0) ?: return false
+    val packageName = resolved.activityInfo?.packageName ?: return false
+    return !packageName.startsWith("com.android.tv.frameworkpackagestubs") &&
+        !packageName.startsWith("com.google.android.tv.frameworkpackagestubs")
 }
 
 @Composable
@@ -191,7 +206,15 @@ fun NovaNavHost(graph: NovaGraph) {
                 onCycleBuffer = viewModel::cycleBuffer,
                 onSelectAudio = viewModel::selectAudio,
                 onSelectSubtitle = viewModel::selectSubtitle,
-                onPickSubtitleFile = { subtitlePicker.launch(arrayOf("*/*")) },
+                onPickSubtitleFile = {
+                    // Belge seçici olmayan cihazlarda (bazı TV kutuları) İngilizce
+                    // sistem toast'u yerine Türkçe bilgi göster.
+                    if (hasDocumentPicker(context)) {
+                        subtitlePicker.launch(arrayOf("*/*"))
+                    } else {
+                        viewModel.reportMissingSubtitlePicker()
+                    }
+                },
                 onMenuOpenChange = viewModel::keepOsdVisible,
             )
         }

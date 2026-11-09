@@ -196,6 +196,11 @@ class PlayerViewModel(
         viewModelScope.launch { play(current) }
     }
 
+    /** Cihazda belge seçici yoksa kullanıcıya Türkçe bilgi ver. */
+    fun reportMissingSubtitlePicker() {
+        playbackController.showNotice("Bu cihazda dosya seçici yok; altyazıyı yayına gömülü kullanın.")
+    }
+
     fun cycleAspect() {
         val values = VideoAspect.entries
         val next = values[(values.indexOf(playbackController.aspect.value) + 1) % values.size]

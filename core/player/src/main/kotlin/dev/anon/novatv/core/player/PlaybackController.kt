@@ -260,6 +260,11 @@ class PlaybackController(private val context: Context) {
         _notice.value = null
     }
 
+    /** Oynatıcı ekranında kısa süreli bilgi gösterir (ör. dosya seçici yok). */
+    fun showNotice(text: String) {
+        _notice.value = text
+    }
+
     fun release() {
         exoPlayer.removeListener(listener)
         exoPlayer.release()
