@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertIsEnabled
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -158,7 +159,10 @@ class PlaylistFormTest {
 
         rule.onNodeWithTag("test-connection").performSemanticsAction(SemanticsActions.OnClick)
         rule.waitUntil(timeoutMillis = 5_000) {
-            rule.onAllNodesWithText("Hesap: Active").fetchSemanticsNodes().isNotEmpty()
+            runCatching {
+                rule.onNodeWithTag("connection-status").assertTextEquals("Active")
+                true
+            }.getOrDefault(false)
         }
 
         rule.onNodeWithTag("save-source").performSemanticsAction(SemanticsActions.OnClick)
