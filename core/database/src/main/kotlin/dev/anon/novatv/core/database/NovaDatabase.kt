@@ -38,7 +38,7 @@ import dev.anon.novatv.core.database.entity.WatchHistoryEntity
         HiddenGroupEntity::class,
         WatchHistoryEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 abstract class NovaDatabase : RoomDatabase() {
@@ -49,6 +49,8 @@ abstract class NovaDatabase : RoomDatabase() {
 
     companion object {
         fun build(context: Context): NovaDatabase =
-            Room.databaseBuilder(context.applicationContext, NovaDatabase::class.java, "novatv.db").build()
+            Room.databaseBuilder(context.applicationContext, NovaDatabase::class.java, "novatv.db")
+                .addMigrations(MIGRATION_1_2)
+                .build()
     }
 }

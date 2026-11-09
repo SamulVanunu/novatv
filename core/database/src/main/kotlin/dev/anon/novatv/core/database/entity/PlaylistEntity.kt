@@ -17,4 +17,6 @@ data class PlaylistEntity(
     val lastSyncAt: Long?,
     val syncState: String,
     val syncIntervalHours: Int,
+    val referer: String? = null,
+    val lastError: String? = null,
 )

@@ -19,11 +19,13 @@ fun PlaylistEntity.toModel(): Playlist = Playlist(
     username = username,
     epgUrl = epgUrl,
     userAgent = userAgent,
+    referer = referer,
     isActive = isActive,
     sortOrder = sortOrder,
     lastSyncAt = lastSyncAt,
     syncState = runCatching { SyncState.valueOf(syncState) }.getOrDefault(SyncState.NEVER),
     syncIntervalHours = syncIntervalHours,
+    lastError = lastError,
 )
 
 fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
@@ -34,11 +36,13 @@ fun Playlist.toEntity(): PlaylistEntity = PlaylistEntity(
     username = username,
     epgUrl = epgUrl,
     userAgent = userAgent,
+    referer = referer,
     isActive = isActive,
     sortOrder = sortOrder,
     lastSyncAt = lastSyncAt,
     syncState = syncState.name,
     syncIntervalHours = syncIntervalHours,
+    lastError = lastError,
 )
 
 fun ChannelEntity.toModel(): Channel = Channel(
@@ -53,6 +57,8 @@ fun ChannelEntity.toModel(): Channel = Channel(
     hasArchive = hasArchive,
     archiveDays = archiveDays,
     format = runCatching { StreamFormat.valueOf(streamFormat) }.getOrDefault(StreamFormat.AUTO),
+    streamUserAgent = streamUserAgent,
+    streamReferer = streamReferer,
 )
 
 fun Channel.toEntity(syncToken: Long): ChannelEntity = ChannelEntity(
@@ -69,6 +75,8 @@ fun Channel.toEntity(syncToken: Long): ChannelEntity = ChannelEntity(
     archiveDays = archiveDays,
     streamFormat = format.name,
     syncToken = syncToken,
+    streamUserAgent = streamUserAgent,
+    streamReferer = streamReferer,
 )
 
 fun EpgProgramEntity.toModel(): EpgProgram = EpgProgram(

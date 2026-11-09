@@ -14,9 +14,12 @@ data class Playlist(
     val username: String? = null,
     val epgUrl: String? = null,
     val userAgent: String? = null,
+    val referer: String? = null,
     val isActive: Boolean = true,
     val sortOrder: Int = 0,
     val lastSyncAt: Long? = null,
     val syncState: SyncState = SyncState.NEVER,
     val syncIntervalHours: Int = 24,
+    /** Son senkron hatasının kullanıcıya gösterilebilir, arındırılmış metni. */
+    val lastError: String? = null,
 )

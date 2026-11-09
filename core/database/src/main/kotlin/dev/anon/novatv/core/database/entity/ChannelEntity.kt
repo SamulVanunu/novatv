@@ -35,6 +35,8 @@ data class ChannelEntity(
     val archiveDays: Int,
     val streamFormat: String,
     val syncToken: Long,
+    val streamUserAgent: String? = null,
+    val streamReferer: String? = null,
 )
 
 data class ChannelIdRow(val id: Long, val remoteId: String)

@@ -14,4 +14,7 @@ data class Channel(
     val hasArchive: Boolean = false,
     val archiveDays: Int = 0,
     val format: StreamFormat = StreamFormat.AUTO,
+    /** Listede kanal başına tanımlı akış başlıkları (#EXTVLCOPT). */
+    val streamUserAgent: String? = null,
+    val streamReferer: String? = null,
 )
