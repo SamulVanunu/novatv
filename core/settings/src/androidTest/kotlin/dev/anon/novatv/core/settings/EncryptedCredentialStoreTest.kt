@@ -23,4 +23,17 @@ class EncryptedCredentialStoreTest {
         store.remove(42L)
         assertNull(store.get(42L))
     }
+
+    @Test
+    fun storesReadsAndRemovesSourceUrl() = runBlocking {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val store = EncryptedCredentialStore(context, fileName = "novatv_credentials_test")
+
+        val url = "https://panel.example/get.php?username=demo-user&password=demo-pass"
+        store.putSourceUrl(7L, url)
+        assertEquals(url, store.getSourceUrl(7L))
+
+        store.removeSourceUrl(7L)
+        assertNull(store.getSourceUrl(7L))
+    }
 }

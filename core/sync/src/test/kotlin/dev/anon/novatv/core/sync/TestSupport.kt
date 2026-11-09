@@ -30,6 +30,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 class FakeCredentialStore : CredentialStore {
     val values = mutableMapOf<Long, Credentials>()
+    val sourceUrls = mutableMapOf<Long, String>()
 
     override suspend fun put(playlistId: Long, credentials: Credentials) {
         values[playlistId] = credentials
@@ -39,6 +40,17 @@ class FakeCredentialStore : CredentialStore {
 
     override suspend fun remove(playlistId: Long) {
         values.remove(playlistId)
+        sourceUrls.remove(playlistId)
+    }
+
+    override suspend fun putSourceUrl(playlistId: Long, url: String) {
+        sourceUrls[playlistId] = url
+    }
+
+    override suspend fun getSourceUrl(playlistId: Long): String? = sourceUrls[playlistId]
+
+    override suspend fun removeSourceUrl(playlistId: Long) {
+        sourceUrls.remove(playlistId)
     }
 }
 

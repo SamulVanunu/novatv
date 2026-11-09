@@ -40,9 +40,23 @@ class EncryptedCredentialStore(
         prefs.edit()
             .remove(userKey(playlistId))
             .remove(passKey(playlistId))
+            .remove(sourceUrlKey(playlistId))
             .apply()
+    }
+
+    override suspend fun putSourceUrl(playlistId: Long, url: String) = withContext(Dispatchers.IO) {
+        prefs.edit().putString(sourceUrlKey(playlistId), url).apply()
+    }
+
+    override suspend fun getSourceUrl(playlistId: Long): String? = withContext(Dispatchers.IO) {
+        prefs.getString(sourceUrlKey(playlistId), null)
+    }
+
+    override suspend fun removeSourceUrl(playlistId: Long) = withContext(Dispatchers.IO) {
+        prefs.edit().remove(sourceUrlKey(playlistId)).apply()
     }
 
     private fun userKey(id: Long) = "playlist_${id}_user"
     private fun passKey(id: Long) = "playlist_${id}_pass"
+    private fun sourceUrlKey(id: Long) = "playlist_${id}_source_url"
 }
