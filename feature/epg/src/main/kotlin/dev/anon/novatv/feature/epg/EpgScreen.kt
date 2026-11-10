@@ -510,7 +510,8 @@ private fun EmptyGuide(message: String?, syncing: Boolean, onRefresh: () -> Unit
         Spacer(Modifier.height(8.dp))
         Text(
             text = message
-                ?: "Kaynağın XMLTV adresi yoksa veya kanallarda tvg-id tanımlı değilse rehber dolmaz.",
+                ?: "Kaynağın EPG (XMLTV) adresi tanımlı değil. Kaynaklar → Düzenle " +
+                "bölümünden ekleyip yenileyin.",
             style = NovaType.BodyMuted,
             modifier = Modifier.width(520.dp).padding(horizontal = 10.dp),
         )
