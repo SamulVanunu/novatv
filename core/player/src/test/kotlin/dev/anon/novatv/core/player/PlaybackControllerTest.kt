@@ -136,6 +136,55 @@ class PlaybackControllerTest {
     }
 
     @Test
+    fun unrecognizedContainerGetsFriendlyMessage() {
+        val error = PlaybackException(
+            "None of the available extractors could read the stream",
+            IllegalStateException("UnrecognizedInputFormatException"),
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED,
+        )
+
+        val failed = PlaybackErrorPolicy.map(error)
+
+        assertFalse(failed.retryable)
+        assertEquals("Yayın biçimi tanınmadı (desteklenmeyen kapsayıcı).", failed.reason)
+    }
+
+    @Test
+    fun timeoutGetsFriendlyMessageAndStaysRetryable() {
+        val error = PlaybackException(
+            "connect timed out",
+            java.net.SocketTimeoutException("timeout"),
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+        )
+
+        val failed = PlaybackErrorPolicy.map(error)
+
+        assertTrue(failed.retryable)
+        assertEquals("Sunucuya ulaşılamadı (zaman aşımı).", failed.reason)
+    }
+
+    @Test
+    fun localFilePlaysThroughDefaultDataSource() {
+        // Kayıtlar file:// ile açılır; yalnızca HTTP fabrikası verilirse
+        // Media3 FileURLConnection'ı HttpURLConnection'a çevirmeye çalışıp
+        // ClassCastException verir.
+        val file = java.io.File.createTempFile("novatv-rec", ".ts")
+        file.writeBytes(byteArrayOf(1, 2, 3))
+        val controller = PlaybackController(org.robolectric.RuntimeEnvironment.getApplication())
+        val source = controller.dataSourceFactory(emptyMap()).createDataSource()
+        try {
+            source.open(DataSpec(android.net.Uri.fromFile(file)))
+            val buffer = ByteArray(3)
+            assertEquals(3, source.read(buffer, 0, 3))
+            org.junit.Assert.assertArrayEquals(byteArrayOf(1, 2, 3), buffer)
+        } finally {
+            source.close()
+            controller.release()
+            file.delete()
+        }
+    }
+
+    @Test
     fun noticeRoundingTrip() {
         val controller = PlaybackController(org.robolectric.RuntimeEnvironment.getApplication())
         try {

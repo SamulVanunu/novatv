@@ -1,5 +1,6 @@
 package dev.anon.novatv.core.sync
 
+import android.util.Log
 import dev.anon.novatv.core.database.NovaDatabase
 import dev.anon.novatv.core.database.entity.EpgChannelEntity
 import dev.anon.novatv.core.database.entity.EpgProgramEntity
@@ -13,7 +14,9 @@ import dev.anon.novatv.core.network.SourceNetworkException
 import dev.anon.novatv.core.settings.PreferenceStore
 import dev.anon.novatv.core.source.SourceAdapterRegistry
 import java.time.ZoneId
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
@@ -21,7 +24,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 
 data class EpgSyncResult(
     val channels: Int = 0,
@@ -89,6 +92,7 @@ class EpgRepository(
         if (channelByTvg.isEmpty()) {
             return EpgSyncResult(skippedReason = "Kanallarda tvg-id yok")
         }
+        Log.i(TAG, "epg sync start playlist=$playlistId channels=${channels.size} tvg=${channelByTvg.size / 2}")
 
         val windowDays = runCatching { preferences?.appearance?.first()?.windowDays }
             .getOrNull() ?: DEFAULT_WINDOW_DAYS
@@ -129,9 +133,15 @@ class EpgRepository(
         )
 
         var stored = 0
+        var seenPrograms = 0
+        var seenChannels = 0
+        var windowSkipped = 0
+        var unmatched = 0
         val buffer = ArrayList<EpgProgramEntity>(BATCH_SIZE)
 
-        fun flush() {
+        // SAX geri çağrıları askıya alınamaz; yazma IO iş parçacığında
+        // engellenerek yapılır (çağıran zaten withContext(IO) içinde).
+        fun writeBuffer() {
             if (buffer.isEmpty()) return
             val chunk = buffer.toList()
             buffer.clear()
@@ -139,54 +149,73 @@ class EpgRepository(
             stored += chunk.size
         }
 
-        val response = http.openStream(source.url, source.headers)
-        response.use { body ->
-            val stream = body.body?.byteStream()
-                ?: throw SourceNetworkException("EPG yanıtı boş")
-            stream.use { input ->
-                XmltvParser(zone).parse(
-                    input = input,
-                    onChannel = { xmlChannel ->
-                        val channelRowId = channelId(xmlChannel.id) ?: return@parse
-                        val epgId = epgChannelId(xmlChannel.id) ?: return@parse
-                        runBlocking {
-                            db.epgDao().upsertChannel(
-                                EpgChannelEntity(
-                                    id = epgId,
-                                    playlistId = playlistId,
-                                    tvgId = xmlChannel.id,
-                                    displayName = xmlChannel.displayName,
-                                    iconUrl = xmlChannel.iconUrl
-                                        ?: db.channelDao().byId(channelRowId)?.logoUrl,
-                                ),
+        // Ağ ve ayrıştırma ana iş parçacığında çalışmamalı: OkHttp yanıtı
+        // kapatırken kalan baytları okuyor ve StrictMode bunu engelliyor.
+        withContext(Dispatchers.IO) {
+            http.openStream(source.url, source.headers).use { body ->
+                val stream = body.body?.byteStream()
+                    ?: throw SourceNetworkException("EPG yanıtı boş")
+                stream.use { input ->
+                    XmltvParser(zone).parse(
+                        input = input,
+                        onChannel = { xmlChannel ->
+                            seenChannels++
+                            val channelRowId = channelId(xmlChannel.id) ?: return@parse
+                            val epgId = epgChannelId(xmlChannel.id) ?: return@parse
+                            runBlocking {
+                                db.epgDao().upsertChannel(
+                                    EpgChannelEntity(
+                                        id = epgId,
+                                        playlistId = playlistId,
+                                        tvgId = xmlChannel.id,
+                                        displayName = xmlChannel.displayName,
+                                        iconUrl = xmlChannel.iconUrl
+                                            ?: db.channelDao().byId(channelRowId)?.logoUrl,
+                                    ),
+                                )
+                            }
+                        },
+                        onProgram = { program ->
+                            seenPrograms++
+                            val epgId = epgChannelId(program.channelId) ?: run {
+                                unmatched++
+                                return@parse
+                            }
+                            val channelRowId = channelId(program.channelId) ?: run {
+                                unmatched++
+                                return@parse
+                            }
+                            val endAt = program.endAt ?: (program.startAt + DEFAULT_PROGRAM_MS)
+                            if (endAt <= from || program.startAt >= to) {
+                                windowSkipped++
+                                return@parse
+                            }
+                            buffer += EpgProgramEntity(
+                                epgChannelId = epgId,
+                                channelId = channelRowId,
+                                startAt = program.startAt,
+                                endAt = endAt,
+                                title = program.title,
+                                subtitle = program.subTitle,
+                                description = program.description,
+                                category = program.category,
+                                rating = program.rating,
+                                episodeNum = program.episodeNum,
+                                isNew = program.isNew,
                             )
-                        }
-                    },
-                    onProgram = { program ->
-                        val epgId = epgChannelId(program.channelId) ?: return@parse
-                        val channelRowId = channelId(program.channelId) ?: return@parse
-                        val endAt = program.endAt ?: (program.startAt + DEFAULT_PROGRAM_MS)
-                        if (endAt <= from || program.startAt >= to) return@parse
-
-                        buffer += EpgProgramEntity(
-                            epgChannelId = epgId,
-                            channelId = channelRowId,
-                            startAt = program.startAt,
-                            endAt = endAt,
-                            title = program.title,
-                            subtitle = program.subTitle,
-                            description = program.description,
-                            category = program.category,
-                            rating = program.rating,
-                            episodeNum = program.episodeNum,
-                            isNew = program.isNew,
-                        )
-                        if (buffer.size >= BATCH_SIZE) flush()
-                    },
-                )
+                            if (buffer.size >= BATCH_SIZE) writeBuffer()
+                        },
+                    )
+                }
             }
+            writeBuffer()
         }
-        flush()
+        Log.i(
+            TAG,
+            "epg sync done playlist=$playlistId xmlChannels=$seenChannels programs=$seenPrograms " +
+                "stored=$stored unmatched=$unmatched windowSkipped=$windowSkipped " +
+                "from=$from to=$to now=$now",
+        )
 
         db.epgDao().deleteEndedBefore(now - 2 * DAY_MS)
         db.epgDao().deleteStartingAfter(to + DAY_MS)
@@ -251,6 +280,9 @@ class EpgRepository(
         val active = db.playlistDao().observeActive().first()
         return active.map { playlist ->
             runCatching { if (force) sync(playlist.id) else syncIfStale(playlist.id) }
+                .onFailure { error ->
+                    Log.w(TAG, "epg sync failed playlist=${playlist.id}", error)
+                }
                 .getOrElse { error ->
                     EpgSyncResult(skippedReason = error.message ?: "Rehber yenilenemedi")
                 }
@@ -265,6 +297,7 @@ class EpgRepository(
     }
 
     companion object {
+        private const val TAG = "EpgSync"
         const val DAY_MS = 24 * 60 * 60 * 1_000L
         const val STALE_AFTER_MS = 6 * 60 * 60 * 1_000L
         const val DEFAULT_WINDOW_DAYS = 3

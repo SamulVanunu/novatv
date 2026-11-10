@@ -9,9 +9,9 @@
     "added": "1700000000",
     "category_id": "1",
     "custom_sid": "",
-    "tv_archive": 0,
+    "tv_archive": 1,
     "direct_source": "",
-    "tv_archive_duration": 0
+    "tv_archive_duration": 7
   },
   {
     "num": 2,

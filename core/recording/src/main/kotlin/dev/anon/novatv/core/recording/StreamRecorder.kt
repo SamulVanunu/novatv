@@ -38,19 +38,24 @@ class StreamRecorder(
     private val sleep: suspend (Long) -> Unit = { delay(it) },
 ) {
 
+    /**
+     * [shouldStop] kullanıcı durdurmasını bildirir: döngü kapanır, o ana kadar
+     * yazılan baytlar geçerli bir kayıt olarak döner. İş iptal edilmez.
+     */
     suspend fun record(
         plan: RecordingPlan,
         url: String,
         headers: Map<String, String> = emptyMap(),
         target: File,
         onBytes: (Long) -> Unit = {},
+        shouldStop: () -> Boolean = { false },
     ): RecordResult = withContext(Dispatchers.IO) {
         target.parentFile?.mkdirs()
         runCatching {
             if (isHlsUrl(url)) {
-                recordHls(plan, url, headers, target, onBytes)
+                recordHls(plan, url, headers, target, onBytes, shouldStop)
             } else {
-                recordTs(plan, url, headers, target, onBytes)
+                recordTs(plan, url, headers, target, onBytes, shouldStop)
             }
         }.getOrElse { throwable ->
             if (throwable is CancellationException) throw throwable
@@ -68,14 +73,15 @@ class StreamRecorder(
         headers: Map<String, String>,
         target: File,
         onBytes: (Long) -> Unit,
+        shouldStop: () -> Boolean,
     ): RecordResult {
         var total = if (target.exists()) target.length() else 0L
         var attempt = 0
 
         FileOutputStream(target, true).use { output ->
-            while (clock() < plan.endAt) {
+            while (clock() < plan.endAt && !shouldStop()) {
                 try {
-                    downloadRaw(url, headers, output, plan.endAt) { written ->
+                    downloadRaw(url, headers, output, plan.endAt, shouldStop) { written ->
                         total += written
                         onBytes(total)
                     }
@@ -112,6 +118,7 @@ class StreamRecorder(
         headers: Map<String, String>,
         output: FileOutputStream,
         deadline: Long,
+        shouldStop: () -> Boolean,
         onWritten: (Long) -> Unit,
     ) {
         client.newCall(request(url, headers)).execute().use { response ->
@@ -122,7 +129,7 @@ class StreamRecorder(
             val input = body.byteStream()
             val buffer = ByteArray(BUFFER_BYTES)
             while (true) {
-                if (clock() >= deadline) break
+                if (clock() >= deadline || shouldStop()) break
                 val read = input.read(buffer)
                 if (read <= 0) break
                 output.write(buffer, 0, read)
@@ -138,6 +145,7 @@ class StreamRecorder(
         headers: Map<String, String>,
         target: File,
         onBytes: (Long) -> Unit,
+        shouldStop: () -> Boolean,
     ): RecordResult {
         var playlistUrl = url
         val first = fetchPlaylist(playlistUrl, headers)
@@ -153,7 +161,7 @@ class StreamRecorder(
         var failures = 0
 
         FileOutputStream(target, true).use { output ->
-            while (clock() < plan.endAt) {
+            while (clock() < plan.endAt && !shouldStop()) {
                 try {
                     val media = fetchPlaylist(playlistUrl, headers)
                     if (media.encrypted) {
@@ -164,8 +172,9 @@ class StreamRecorder(
                         )
                     }
                     media.segments.forEach { segment ->
+                        if (shouldStop()) return@forEach
                         if (!seen.add(segment)) return@forEach
-                        downloadSegment(segment, headers, output, plan.endAt) { written ->
+                        downloadSegment(segment, headers, output, plan.endAt, shouldStop) { written ->
                             total += written
                             onBytes(total)
                         }
@@ -214,6 +223,7 @@ class StreamRecorder(
         headers: Map<String, String>,
         output: FileOutputStream,
         deadline: Long,
+        shouldStop: () -> Boolean,
         onWritten: (Long) -> Unit,
     ) {
         client.newCall(request(url, headers)).execute().use { response ->
@@ -222,7 +232,7 @@ class StreamRecorder(
             val input = body.byteStream()
             val buffer = ByteArray(BUFFER_BYTES)
             while (true) {
-                if (clock() >= deadline) break
+                if (clock() >= deadline || shouldStop()) break
                 val read = input.read(buffer)
                 if (read <= 0) break
                 output.write(buffer, 0, read)

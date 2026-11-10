@@ -33,6 +33,13 @@ class RecordingService : Service() {
     private var currentId: String? = null
     private var notifiedBytes = -1L
 
+    /** Kullanıcı "Durdur" dediğinde yazma döngüsüne bildirilir. */
+    @Volatile
+    private var stopRequested = false
+
+    /** Bildirim en fazla 5 saniyede bir tazelenir: sistem kuyruğu taşmasın. */
+    private var lastNotifyAt = 0L
+
     private val graph: NovaGraph
         get() = (application as NovaApplication).graph
 
@@ -41,8 +48,9 @@ class RecordingService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopCurrent("Kullanıcı durdurdu")
-                stopSelf()
+                // Kooperatif durdurma: job iptal edilmez, finish() dosyayı
+                // tamamlanmış kayıt olarak yazar ve servisi kendisi kapatır.
+                requestStop()
                 return START_NOT_STICKY
             }
 
@@ -81,6 +89,8 @@ class RecordingService : Service() {
         ensureChannel()
         currentId = id
         notifiedBytes = -1
+        lastNotifyAt = 0L
+        stopRequested = false
         graph.recordings.markRecording(id)
         startForeground(NOTIFICATION_ID, buildNotification(plan, bytes = 0L, done = false))
 
@@ -103,6 +113,7 @@ class RecordingService : Service() {
                 headers = stream.headers,
                 target = target,
                 onBytes = ::onBytes,
+                shouldStop = { stopRequested },
             )
             finish(plan, result.bytes, result.error)
         }
@@ -110,8 +121,9 @@ class RecordingService : Service() {
 
     private fun onBytes(bytes: Long) {
         val id = currentId ?: return
-        // Her baytta değil, ~256 KB'da bir bildirim tazele.
-        if (bytes - notifiedBytes < 256 * 1024L) return
+        val now = System.currentTimeMillis()
+        if (now - lastNotifyAt < NOTIFY_INTERVAL_MS) return
+        lastNotifyAt = now
         notifiedBytes = bytes
         val plan = graph.recordings.plan(id) ?: return
         runCatching {
@@ -124,18 +136,20 @@ class RecordingService : Service() {
 
     private fun finish(plan: RecordingPlan, bytes: Long, error: String?) {
         val id = plan.id
-        if (error == null && bytes > 0) {
-            val path = graph.recordingStorage.fileFor(plan).absolutePath
-            graph.recordings.markDone(id, path, bytes)
+        val file = graph.recordingStorage.fileFor(plan)
+        // Disk gerçeği esastır: sayaç ile dosya boyutu ayrışırsa dosya kazanır.
+        val size = if (file.exists()) file.length() else 0L
+        if (error == null && size > 0) {
+            graph.recordings.markDone(id, file.absolutePath, size)
             runCatching {
                 notificationManager()?.notify(
                     NOTIFICATION_ID,
-                    buildNotification(plan, bytes, done = true),
+                    buildNotification(plan, size, done = true),
                 )
             }
         } else {
-            graph.recordingStorage.fileFor(plan).delete()
-            graph.recordings.markFailed(id, error ?: "Kayıt tamamlanamadı", bytes)
+            file.delete()
+            graph.recordings.markFailed(id, error ?: "Kayıt tamamlanamadı", size)
             runCatching { notificationManager()?.cancel(NOTIFICATION_ID) }
         }
         currentId = null
@@ -148,20 +162,27 @@ class RecordingService : Service() {
         stopSelf()
     }
 
-    private fun stopCurrent(message: String) {
-        val id = currentId
-        job?.cancel()
-        job = null
-        if (id != null) {
+    /**
+     * Durdurma isteği. Kayıt sürüyorsa iş iptal edilmez; döngü kısa süre
+     * içinde kapanır ve [finish] dosyayı DONE olarak yazar. Kayıt yoksa
+     * servis temizlenir.
+     */
+    private fun requestStop() {
+        if (job?.isActive == true) {
+            stopRequested = true
+            return
+        }
+        currentId?.let { id ->
             val bytes = graph.recordings.entry(id)?.bytes ?: 0L
-            graph.recordings.markFailed(id, message, bytes)
+            graph.recordings.markFailed(id, "Kayıt yarıda kaldı", bytes)
         }
         currentId = null
         notificationManager()?.cancel(NOTIFICATION_ID)
+        stopSelf()
     }
 
     override fun onDestroy() {
-        if (job?.isActive == true) {
+        if (job?.isActive == true && !stopRequested) {
             val id = currentId
             if (id != null) {
                 graph.recordings.markFailed(id, "Kayıt yarıda kaldı")
@@ -226,6 +247,7 @@ class RecordingService : Service() {
         const val ACTION_STOP = dev.anon.novatv.core.recording.RecordingScheduler.ACTION_STOP
         const val EXTRA_ID = "recordingId"
         private const val CHANNEL_ID = "recordings"
+        private const val NOTIFY_INTERVAL_MS = 5_000L
         private const val NOTIFICATION_ID = 41_001
     }
 }

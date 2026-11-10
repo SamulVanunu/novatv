@@ -118,6 +118,30 @@ class StreamRecorderTest {
     }
 
     @Test
+    fun userStopEndsLoopAndKeepsWrittenBytes() = runBlocking {
+        // Kullanıcı "Durdur" dediğinde iş iptal edilmemeli: o ana kadar yazılan
+        // baytlar geçerli bir kayıt olarak dönmeli, dosya silinmemeli.
+        server.enqueue(MockResponse().setBody("AAA"))
+
+        var stop = false
+        val target = File(folder.root, "stopped.ts")
+        val result = recorder(sleepStep = 5_000).record(
+            plan = plan,
+            url = server.url("/live/ch.ts").toString(),
+            target = target,
+            onBytes = { stop = true },
+            shouldStop = { stop },
+        )
+
+        assertEquals(null, result.error)
+        assertEquals(3L, result.bytes)
+        assertEquals(target.absolutePath, result.path)
+        assertEquals("AAA", target.readText())
+        // Durdurma isteğinden sonra yeniden bağlanılmaz.
+        assertEquals(1, server.requestCount)
+    }
+
+    @Test
     fun emptyStreamLeavesNoFile() = runBlocking {
         server.enqueue(MockResponse().setBody(""))
 

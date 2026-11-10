@@ -64,6 +64,105 @@ async function readJson(name, req) {
   return JSON.parse(req ? rewriteHosts(raw, req) : raw);
 }
 
+/**
+ * XMLTV zamanı: `YYYYMMDDhhmmss +0300`. Rehber "şimdi"ye göre üretildiği için
+ * kanal listesindeki programlar her zaman güncel saatle örtüşür.
+ */
+function xmltvTime(ms) {
+  const date = new Date(ms + 3 * 60 * 60 * 1000);
+  const pad = (value) => String(value).padStart(2, "0");
+  return (
+    date.getUTCFullYear() +
+    pad(date.getUTCMonth() + 1) +
+    pad(date.getUTCDate()) +
+    pad(date.getUTCHours()) +
+    pad(date.getUTCMinutes()) +
+    pad(date.getUTCSeconds()) +
+    " +0300"
+  );
+}
+
+function xmlEscape(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
+}
+
+const XMLTV_CHANNELS = [
+  { id: "trt1", name: "TRT 1", icon: "/logo/trt1.png" },
+  { id: "trtspor", name: "TRT Spor", icon: "/logo/trtspor.png" },
+  { id: "belgesel", name: "Doğa TV", icon: null },
+];
+
+const XMLTV_SLOTS = {
+  trt1: [
+    ["Sabah Haberleri", "Günün ilk haber bülteni."],
+    ["Gündüz Kuşağı", "Sohbet ve yaşam programı."],
+    ["Öğle Haberleri", "Öğle saatlerinin gelişmeleri."],
+    ["Dizi Kuşağı", "Günün dizisi."],
+    ["Ana Haber", "Akşam haberlerinin tamamı."],
+    ["Prime Time", "Akşamın öne çıkan yapımı."],
+    ["Gece Yayını", "Gece boyunca seçkin yapımlar."],
+  ],
+  trtspor: [
+    ["Spor Bülteni", "Günün spor gelişmeleri."],
+    ["Canlı Maç", "Stüdyodan canlı karşılaşma."],
+    ["Spor Gündemi", "Yorumcularla günün değerlendirmesi."],
+    ["Özetler", "Günün maç özetleri."],
+  ],
+  belgesel: [
+    ["Vahşi Yaşam", "Doğanın saklı köşelerinden görüntüler."],
+    ["Okyanuslar", "Derin sulardaki yaşam."],
+    ["Anadolu", "Anadolu'nun dört mevsimi."],
+    ["Gökyüzü", "Gece gökyüzünün izinde."],
+  ],
+};
+
+/** "Şimdi"ye çıpalanmış 30 dakikalık programlarla XMLTV üretir. */
+function buildXmltv(origin) {
+  const now = Date.now();
+  const slot = 30 * 60 * 1000;
+  const currentSlot = Math.floor(now / slot);
+  const from = currentSlot - 8; // 4 saat geriye: geçmiş program + catch-up
+  const to = currentSlot + 144; // 3 gün ileri: yarın/öbür gün dolu
+
+  const parts = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<tv generator-info-name="NovaTV mock">',
+  ];
+
+  for (const channel of XMLTV_CHANNELS) {
+    parts.push(`  <channel id="${xmlEscape(channel.id)}">`);
+    parts.push(`    <display-name>${xmlEscape(channel.name)}</display-name>`);
+    if (channel.icon) parts.push(`    <icon src="${xmlEscape(origin + channel.icon)}" />`);
+    parts.push("  </channel>");
+  }
+
+  const channels = Object.keys(XMLTV_SLOTS);
+  for (let index = from; index < to; index++) {
+    for (const channelId of channels) {
+      const variants = XMLTV_SLOTS[channelId];
+      const [title, description] = variants[index % variants.length];
+      const startAt = index * slot;
+      const endAt = startAt + slot;
+      // Ana haber kuşağında yaş sınırı etiketi: ebeveyn kilidi testleri için.
+      const rated = title === "Prime Time";
+      parts.push(`  <programme start="${xmltvTime(startAt)}" stop="${xmltvTime(endAt)}" channel="${xmlEscape(channelId)}">`);
+      parts.push(`    <title lang="tr">${xmlEscape(title)}</title>`);
+      parts.push(`    <desc lang="tr">${xmlEscape(description)}</desc>`);
+      parts.push(`    <category lang="tr">${xmlEscape(channelId === "trtspor" ? "Spor" : "Genel")}</category>`);
+      if (rated) parts.push('    <rating system="MPAA"><value>18</value></rating>');
+      if (index % 6 === 0) parts.push('    <new />');
+      parts.push("  </programme>");
+    }
+  }
+
+  parts.push("</tv>");
+  return parts.join("\n");
+}
+
 async function serveFile(res, path) {
   try {
     const info = await stat(path);
@@ -83,6 +182,7 @@ async function serveFile(res, path) {
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", BASE);
   const path = url.pathname;
+  console.log(`${new Date().toISOString()} ${req.method} ${req.url}`);
 
   if (req.method === "OPTIONS") {
     res.writeHead(204, {
@@ -147,6 +247,26 @@ const server = createServer(async (req, res) => {
       json(res, await readJson("get_live_streams.json", req));
       return;
     }
+    if (action === "get_vod_categories") {
+      json(res, await readJson("get_vod_categories.json"));
+      return;
+    }
+    if (action === "get_vod_streams") {
+      json(res, await readJson("get_vod_streams.json", req));
+      return;
+    }
+    if (action === "get_series_categories") {
+      json(res, await readJson("get_series_categories.json"));
+      return;
+    }
+    if (action === "get_series") {
+      json(res, await readJson("get_series.json", req));
+      return;
+    }
+    if (action === "get_series_info") {
+      json(res, await readJson("get_series_info.json", req));
+      return;
+    }
     if (action === "get_short_epg") {
       json(res, { epg_listings: [] });
       return;
@@ -167,7 +287,7 @@ const server = createServer(async (req, res) => {
   }
 
   if (path === "/xmltv.php") {
-    text(res, `<?xml version="1.0" encoding="UTF-8"?>\n<tv generator-info-name="NovaTV mock"></tv>`, "application/xml");
+    text(res, buildXmltv(originOf(req)), "application/xml; charset=utf-8");
     return;
   }
 
@@ -178,6 +298,22 @@ const server = createServer(async (req, res) => {
     return;
   }
   if (/^\/live\/demo\/demo\/[^/]+\.ts$/.test(path)) {
+    res.writeHead(302, { location: "/fixtures/test.ts" });
+    res.end();
+    return;
+  }
+  if (/^\/movie\/demo\/demo\/[^/]+$/.test(path)) {
+    res.writeHead(302, { location: "/fixtures/test.ts" });
+    res.end();
+    return;
+  }
+  if (/^\/series\/demo\/demo\/[^/]+$/.test(path)) {
+    res.writeHead(302, { location: "/fixtures/test.ts" });
+    res.end();
+    return;
+  }
+  // Arşiv (catch-up): /timeshift/demo/demo/<dakika>/<yyyy-MM-dd:HH-mm>/<id>.ts
+  if (/^\/timeshift\/demo\/demo\/[^/]+\/[^/]+\/[^/]+$/.test(path)) {
     res.writeHead(302, { location: "/fixtures/test.ts" });
     res.end();
     return;

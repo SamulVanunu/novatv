@@ -1,0 +1,15 @@
+[
+  {
+    "num": 1,
+    "name": "Nova Dizi",
+    "series_id": 801,
+    "cover": "http://127.0.0.1:8089/logo/series-nova.png",
+    "plot": "Küçük bir sahil kasabasında geçen bir aile hikâyesi.",
+    "genre": "Dram, Aile",
+    "releaseDate": "2024-03-01",
+    "rating": "8.7",
+    "backdrop_path": ["http://127.0.0.1:8089/logo/series-nova.png"],
+    "episode_run_time": "45",
+    "category_id": "20"
+  }
+]

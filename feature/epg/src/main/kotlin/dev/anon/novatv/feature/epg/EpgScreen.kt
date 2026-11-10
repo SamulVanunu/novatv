@@ -16,8 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -26,11 +26,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -58,12 +60,17 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val CHANNEL_COLUMN = 172.dp
 private val HOUR_WIDTH = 188.dp
 private const val MINUTES_PER_DAY = 24 * 60
-private val PX_PER_MINUTE = HOUR_WIDTH.value / 60f
+
+/** Ekran açılırken ilk odağın (gün sekmeleri) yerleşmesi için beklenen süre. */
+private const val FOCUS_SETTLE_MS = 400L
+/** Blok genişlikleri dp cinsinden: saat genişliği dakikaya bölünür. */
+private val DP_PER_MINUTE = HOUR_WIDTH.value / 60f
 
 /**
  * Kanal × saat rehberi.
@@ -85,20 +92,34 @@ fun EpgScreen(
     onToggleRecording: (Channel, EpgProgram) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
-    val scroll = rememberScrollState()
+    val density = LocalDensity.current
+    val from = remember(state.dayOffset) { dayStart(state.dayOffset) }
+    val scroll = remember(state.dayOffset) { ScrollState(0) }
     val scope = rememberCoroutineScope()
     val firstProgramFocus = remember { FocusRequester() }
     var selected by remember { mutableStateOf<Pair<Channel, EpgProgram>?>(null) }
-    val from = remember(state.dayOffset) { dayStart(state.dayOffset) }
     val to = from + EpgRepository.DAY_MS
     val firstRowId = remember(state.rows) {
         state.rows.firstOrNull { it.programs.isNotEmpty() }?.channel?.id
     }
 
-    LaunchedEffect(state.rows.size, state.dayOffset) {
+    // Rehber yüklenince odak şimdiki programa gider. Odaklama, kaydırılabilir
+    // alanı odaklanan bloğa getirmek için kaydırmayı kendiliğinden değiştirir;
+    // bu yüzden "şimdi" hizalaması odaktan bir kare sonra yapılır.
+    LaunchedEffect(state.dayOffset, state.rows.size) {
         if (state.rows.any { it.programs.isNotEmpty() }) {
+            // Ekran ilk odağını (gün sekmeleri) yerleştirdikten sonra
+            // ızgaraya geçilir; aksi hâlde odak ilk karede geri alınır.
+            delay(FOCUS_SETTLE_MS)
             runCatching { firstProgramFocus.requestFocus() }
+            repeat(2) { withFrameNanos { } }
         }
+        val minutes = if (state.dayOffset == 0) {
+            ((state.now - from) / 60_000L).coerceIn(0, MINUTES_PER_DAY.toLong())
+        } else {
+            0L
+        }
+        scroll.scrollTo(with(density) { (HOUR_WIDTH * (minutes / 60f)).roundToPx() })
     }
 
     NovaBackground(modifier = modifier) {
@@ -113,8 +134,8 @@ fun EpgScreen(
                 onRefresh = onRefresh,
                 onBack = onBack,
                 onNow = {
-                    val target = ((state.now - from) / 60_000L).coerceIn(0, MINUTES_PER_DAY.toLong())
-                    val px = (target * PX_PER_MINUTE).toInt()
+                    val minutes = ((state.now - from) / 60_000L).coerceIn(0, MINUTES_PER_DAY.toLong())
+                    val px = with(density) { (HOUR_WIDTH * (minutes / 60f)).roundToPx() }
                     scope.launch { scroll.animateScrollTo(px) }
                 },
             )
@@ -122,6 +143,18 @@ fun EpgScreen(
             Spacer(Modifier.height(12.dp))
             TimeStrip(scroll = scroll, from = from, clock24h = state.clock24h)
             NovaRule(Modifier.fillMaxWidth().padding(top = 4.dp))
+
+            // Rehber dolu olsa da senkron hatası görünmeli: ızgara tüm alanı
+            // kapladığı için bu satır ızgaradan önce gelir.
+            state.message?.let { message ->
+                Text(
+                    text = message,
+                    style = NovaType.Small.copy(color = NovaColors.Warning),
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .testTag("epg-message"),
+                )
+            }
 
             when {
                 state.loading && state.rows.isEmpty() -> Box(
@@ -157,13 +190,6 @@ fun EpgScreen(
                 }
             }
 
-            state.message?.takeIf { state.rows.isNotEmpty() }?.let { message ->
-                Text(
-                    text = message,
-                    style = NovaType.Small.copy(color = NovaColors.Warning),
-                    modifier = Modifier.padding(top = 6.dp).testTag("epg-message"),
-                )
-            }
         }
     }
 
@@ -272,6 +298,15 @@ private fun GuideRowView(
     focusRequester: FocusRequester?,
 ) {
     val blocks = remember(row.programs, from, to) { buildBlocks(row.programs, from, to) }
+    // Odak, günün ilk programı yerine "şimdi" oynayan programa gider.
+    val focusTarget = remember(blocks, now, focusRequester) {
+        if (focusRequester == null) {
+            null
+        } else {
+            blocks.firstOrNull { it.program != null && it.start <= now && now < it.end }
+                ?: blocks.firstOrNull { it.program != null }
+        }
+    }
     val height = rowHeightDp.dp
 
     Row(modifier = Modifier.fillMaxWidth().height(height)) {
@@ -282,9 +317,8 @@ private fun GuideRowView(
         )
         Box(modifier = Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
             Row(modifier = Modifier.horizontalScroll(scroll).height(height)) {
-                var focusAssigned = false
                 blocks.forEach { block ->
-                    val width = (((block.end - block.start) / 60_000L) * PX_PER_MINUTE)
+                    val width = (((block.end - block.start) / 60_000L) * DP_PER_MINUTE)
                         .coerceAtLeast(2f)
                         .dp
                     val program = block.program
@@ -297,8 +331,7 @@ private fun GuideRowView(
                                 .background(NovaColors.Surface.copy(alpha = 0.35f)),
                         )
                     } else {
-                        val requestFocus = focusRequester != null && !focusAssigned
-                        if (requestFocus) focusAssigned = true
+                        val requestFocus = focusTarget != null && focusTarget === block
                         ProgramBlock(
                             program = program,
                             current = program.startAt <= now && program.endAt > now,

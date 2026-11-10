@@ -121,17 +121,29 @@ fun PlaylistFormScreen(
                                     FormField(
                                         value = state.url,
                                         onValueChange = onUrl,
-                                        label = "URL",
-                                        placeholder = "http://sunucu:8080",
+                                        label = if (state.type == PlaylistType.M3U) "Liste adresi" else "Sunucu adresi",
+                                        placeholder = when (state.type) {
+                                            PlaylistType.XTREAM -> "http://sunucu:8080"
+                                            PlaylistType.M3U -> "https://ornek.com/liste.m3u"
+                                            PlaylistType.STALKER -> "http://sunucu:8080/c/"
+                                        },
                                         testTag = "field-url",
                                     )
-                                    FormField(
-                                        value = state.username,
-                                        onValueChange = onUsername,
-                                        label = if (state.type == PlaylistType.STALKER) "MAC adresi" else "Kullanıcı adı",
-                                        placeholder = if (state.type == PlaylistType.STALKER) "00:1A:79:…" else "",
-                                        testTag = "field-username",
-                                    )
+                                    // M3U listesinde kullanıcı adı yoktur; alan yalnızca
+                                    // Xtream (kullanıcı) ve Stalker (MAC) içindir.
+                                    if (state.type != PlaylistType.M3U) {
+                                        FormField(
+                                            value = state.username,
+                                            onValueChange = onUsername,
+                                            label = if (state.type == PlaylistType.STALKER) "MAC adresi" else "Kullanıcı adı",
+                                            placeholder = if (state.type == PlaylistType.STALKER) {
+                                                "00:1A:79:…"
+                                            } else {
+                                                "Xtream kullanıcı adı"
+                                            },
+                                            testTag = "field-username",
+                                        )
+                                    }
                                     if (state.type == PlaylistType.XTREAM) {
                                         FormField(
                                             value = state.password,
@@ -146,6 +158,7 @@ fun PlaylistFormScreen(
                                             value = state.epgUrl,
                                             onValueChange = onEpgUrl,
                                             label = "EPG URL (isteğe bağlı)",
+                                            placeholder = "https://ornek.com/epg.xml",
                                             testTag = "field-epg",
                                         )
                                     }

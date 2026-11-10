@@ -90,6 +90,52 @@ internal object PlaybackErrorPolicy {
         if (cause is HttpDataSource.InvalidResponseCodeException) {
             return "HTTP ${cause.responseCode} ${cause.responseMessage.orEmpty()}".trim()
         }
+        // Media3'ün İngilizce/teknik metni yerine ne olduğunu söyleyen kısa
+        // Türkçe karşılık; tanınmayan kodlarda ham mesaja düşülür.
+        when (error.errorCode) {
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_UNSUPPORTED ->
+                return "Yayın biçimi tanınmadı (desteklenmeyen kapsayıcı)."
+
+            PlaybackException.ERROR_CODE_PARSING_CONTAINER_MALFORMED ->
+                return "Yayın dosyası bozuk görünüyor."
+
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_UNSUPPORTED ->
+                return "Yayın listesi (manifest) desteklenmiyor."
+
+            PlaybackException.ERROR_CODE_PARSING_MANIFEST_MALFORMED ->
+                return "Yayın listesi (manifest) bozuk."
+
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_UNSUPPORTED,
+            PlaybackException.ERROR_CODE_DECODING_FORMAT_EXCEEDS_CAPABILITIES,
+            -> return "Bu cihaz yayının görüntü ya da ses biçimini çözemiyor."
+
+            PlaybackException.ERROR_CODE_DECODER_INIT_FAILED,
+            PlaybackException.ERROR_CODE_DECODING_FAILED,
+            -> return "Kodek başlatılamadı; cihaz bu biçimi desteklemiyor olabilir."
+
+            PlaybackException.ERROR_CODE_DRM_UNSPECIFIED,
+            PlaybackException.ERROR_CODE_DRM_SCHEME_UNSUPPORTED,
+            PlaybackException.ERROR_CODE_DRM_PROVISIONING_FAILED,
+            PlaybackException.ERROR_CODE_DRM_CONTENT_ERROR,
+            PlaybackException.ERROR_CODE_DRM_LICENSE_ACQUISITION_FAILED,
+            PlaybackException.ERROR_CODE_DRM_LICENSE_EXPIRED,
+            PlaybackException.ERROR_CODE_DRM_DISALLOWED_OPERATION,
+            PlaybackException.ERROR_CODE_DRM_SYSTEM_ERROR,
+            PlaybackException.ERROR_CODE_DRM_DEVICE_REVOKED,
+            -> return "Yayın DRM ile korunuyor; bu cihazda açılamıyor."
+
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT ->
+                return "Sunucuya ulaşılamadı (zaman aşımı)."
+
+            PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED ->
+                return "Sunucuya bağlanılamadı."
+
+            PlaybackException.ERROR_CODE_IO_FILE_NOT_FOUND ->
+                return "Dosya ya da yayın bulunamadı."
+
+            PlaybackException.ERROR_CODE_IO_CLEARTEXT_NOT_PERMITTED ->
+                return "Şifresiz (http) bağlantıya bu sürümde izin verilmiyor."
+        }
         return cause?.message?.takeIf { it.isNotBlank() }
             ?: error.message?.takeIf { it.isNotBlank() }
             ?: "Oynatma hatası"
@@ -433,13 +479,15 @@ class PlaybackController(private val context: Context) {
 
     private fun loadErrorPolicy() = DefaultLoadErrorHandlingPolicy(RETRY_COUNT)
 
-    private fun dataSourceFactory(headers: Map<String, String>): DataSource.Factory {
-        val factory = DefaultHttpDataSource.Factory()
+    internal fun dataSourceFactory(headers: Map<String, String>): DataSource.Factory {
+        val http = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
             .setConnectTimeoutMs(CONNECT_TIMEOUT_MS)
             .setReadTimeoutMs(READ_TIMEOUT_MS)
-        if (headers.isNotEmpty()) factory.setDefaultRequestProperties(headers)
-        return factory
+        if (headers.isNotEmpty()) http.setDefaultRequestProperties(headers)
+        // Kayıtlar ve indirilen dosyalar file:// ile açılır; HTTP fabrikası
+        // yalnızca http(s) içindir, diğer şemaları DefaultDataSource çözer.
+        return DefaultDataSource.Factory(context, http)
     }
 
     private fun buildPlayer(): ExoPlayer {

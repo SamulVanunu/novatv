@@ -1,0 +1,36 @@
+[
+  {
+    "num": 1,
+    "name": "Anadolu'nun Sesi",
+    "stream_type": "movie",
+    "stream_id": 901,
+    "stream_icon": "http://127.0.0.1:8089/logo/movie-anadolu.png",
+    "rating": "8.2",
+    "rating_5based": 4.1,
+    "added": "1700000000",
+    "category_id": "10",
+    "container_extension": "ts",
+    "custom_sid": "",
+    "direct_source": "",
+    "year": 2024,
+    "genre": "Belgesel, Doğa",
+    "plot": "Anadolu'nun dört mevsimini anlatan sakin bir belgesel."
+  },
+  {
+    "num": 2,
+    "name": "Gece Yarısı",
+    "stream_type": "movie",
+    "stream_id": 902,
+    "stream_icon": "http://127.0.0.1:8089/logo/movie-gece.png",
+    "rating": "9.3",
+    "rating_5based": 4.7,
+    "added": "1700000100",
+    "category_id": "11",
+    "container_extension": "ts",
+    "custom_sid": "",
+    "direct_source": "",
+    "year": 2023,
+    "genre": "Gerilim, Dram",
+    "plot": "Bir şehirde tek gecede kesişen üç hikâye."
+  }
+]

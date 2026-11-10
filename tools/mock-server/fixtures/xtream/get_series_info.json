@@ -1,0 +1,43 @@
+{
+  "info": {
+    "name": "Nova Dizi",
+    "series_id": 801,
+    "cover": "http://127.0.0.1:8089/logo/series-nova.png",
+    "plot": "Küçük bir sahil kasabasında geçen bir aile hikâyesi.",
+    "genre": "Dram, Aile",
+    "releaseDate": "2024-03-01",
+    "rating": "8.7",
+    "category_id": "20"
+  },
+  "seasons": [
+    { "name": "1. Sezon", "season_number": 1, "episode_count": 2 }
+  ],
+  "episodes": {
+    "1": [
+      {
+        "id": "8101",
+        "episode_num": 1,
+        "title": "Pilot",
+        "container_extension": "ts",
+        "season": 1,
+        "info": {
+          "plot": "Kasabaya yeni gelen aile herkesin hayatını değiştirir.",
+          "duration_secs": 2700,
+          "movie_image": "http://127.0.0.1:8089/logo/episode-1.png"
+        }
+      },
+      {
+        "id": "8102",
+        "episode_num": 2,
+        "title": "Fırtına",
+        "container_extension": "ts",
+        "season": 1,
+        "info": {
+          "plot": "Fırtına gecesi eski bir sır ortaya çıkar.",
+          "duration_secs": 2640,
+          "movie_image": "http://127.0.0.1:8089/logo/episode-2.png"
+        }
+      }
+    ]
+  }
+}
