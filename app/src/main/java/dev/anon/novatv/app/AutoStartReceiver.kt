@@ -29,6 +29,13 @@ class AutoStartReceiver : BroadcastReceiver() {
                     app.graph.preferences.appearance.first().autoStart
                 } ?: false
                 if (!enabled) return@launch
+                // Android 10+ arka plandan etkinlik başlatmayı kısıtlar. Tek
+                // kullanıcı-onaylı istisna "Diğer uygulamaların üzerinde
+                // göster" izni; yoksa açılış sessizce atlanır.
+                if (!android.provider.Settings.canDrawOverlays(context)) {
+                    Log.i(TAG, "Açılışta başlatma için üstte gösterme izni yok, atlandı")
+                    return@launch
+                }
                 val launch = context.packageManager
                     .getLaunchIntentForPackage(context.packageName)
                     ?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

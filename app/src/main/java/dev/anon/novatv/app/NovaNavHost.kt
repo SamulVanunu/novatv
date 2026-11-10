@@ -585,7 +585,21 @@ fun NovaNavHost(graph: NovaGraph) {
                 onEpgRowHeight = viewModel::setEpgRowHeight,
                 onEpgWindowDays = viewModel::setEpgWindowDays,
                 onAutoFrameRate = viewModel::setAutoFrameRate,
-                onAutoStart = viewModel::setAutoStart,
+                onAutoStart = { enabled ->
+                    viewModel.setAutoStart(enabled)
+                    // Android 10+ arka plandan etkinlik açmayı kısıtlar; tek
+                    // kullanıcı-onaylı istisna üstte gösterme izni.
+                    if (enabled && !android.provider.Settings.canDrawOverlays(context)) {
+                        runCatching {
+                            context.startActivity(
+                                android.content.Intent(
+                                    android.provider.Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                                    android.net.Uri.parse("package:${context.packageName}"),
+                                ),
+                            )
+                        }
+                    }
+                },
                 onSleepMinutes = viewModel::setSleepMinutes,
                 onBackup = {
                     if (hasDocumentPicker(context)) {
