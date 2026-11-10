@@ -153,7 +153,7 @@ private fun RecordingRow(
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = entry.channelName + " · " + recordingTimeLabel(entry.startAt, entry.endAt),
+                text = entry.channelName + " · " + recordingEntryTimeLabel(entry),
                 style = NovaType.Small.copy(color = NovaColors.TextMuted),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,

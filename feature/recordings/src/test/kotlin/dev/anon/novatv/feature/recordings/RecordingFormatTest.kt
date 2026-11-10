@@ -27,6 +27,23 @@ class RecordingFormatTest {
     }
 
     @Test
+    fun finishedEntryShowsActualEndAfterManualStop() {
+        val entry = entry(startAt = start, endAt = end)
+            .copy(finishedAt = start + 25 * 60_000L)
+
+        val label = recordingEntryTimeLabel(entry, zone)
+
+        assertTrue(label, label.endsWith("20:25"))
+    }
+
+    @Test
+    fun unfinishedEntryKeepsPlannedEnd() {
+        val entry = entry(startAt = start, endAt = end)
+
+        assertTrue(recordingEntryTimeLabel(entry, zone).endsWith("21:30"))
+    }
+
+    @Test
     fun statusLabelsAreTurkish() {
         assertEquals("Planlandı", recordingStatusLabel(RecordingStatus.SCHEDULED))
         assertEquals("Kaydediliyor", recordingStatusLabel(RecordingStatus.RECORDING))

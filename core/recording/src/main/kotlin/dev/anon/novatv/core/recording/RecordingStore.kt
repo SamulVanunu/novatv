@@ -78,7 +78,12 @@ class RecordingStore(context: Context) {
         it.copy(status = RecordingStatus.RECORDING.name, message = null)
     }
 
-    fun markDone(id: String, filePath: String, bytes: Long) {
+    fun markDone(
+        id: String,
+        filePath: String,
+        bytes: Long,
+        finishedAt: Long = System.currentTimeMillis(),
+    ) {
         removePlan(id)
         updateEntry(id) {
             it.copy(
@@ -86,17 +91,24 @@ class RecordingStore(context: Context) {
                 filePath = filePath,
                 bytes = bytes,
                 message = null,
+                finishedAt = finishedAt,
             )
         }
     }
 
-    fun markFailed(id: String, message: String, bytes: Long = 0) {
+    fun markFailed(
+        id: String,
+        message: String,
+        bytes: Long = 0,
+        finishedAt: Long = System.currentTimeMillis(),
+    ) {
         removePlan(id)
         updateEntry(id) {
             it.copy(
                 status = RecordingStatus.FAILED.name,
                 bytes = bytes,
                 message = message.take(180),
+                finishedAt = finishedAt,
             )
         }
     }

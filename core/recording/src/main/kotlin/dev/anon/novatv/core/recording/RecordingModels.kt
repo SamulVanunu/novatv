@@ -31,6 +31,8 @@ data class RecordingEntry(
     val filePath: String? = null,
     val bytes: Long = 0,
     val message: String? = null,
+    /** Kayıt gerçekten bu anda kapandı; elle durdurmada planlanan bitişten önce. */
+    val finishedAt: Long? = null,
 ) {
     val statusValue: RecordingStatus
         get() = runCatching { RecordingStatus.valueOf(status) }

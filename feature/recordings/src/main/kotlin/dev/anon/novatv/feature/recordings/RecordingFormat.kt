@@ -17,6 +17,10 @@ internal fun recordingTimeLabel(startAt: Long, endAt: Long, zone: ZoneId = ZoneI
     return RECORDING_TIME.format(start) + "–" + endFmt.format(end)
 }
 
+/** Biten kayıtta gerçek bitişi, süren/planlanan kayıtta planlanan bitişi gösterir. */
+internal fun recordingEntryTimeLabel(entry: RecordingEntry, zone: ZoneId = ZoneId.systemDefault()): String =
+    recordingTimeLabel(entry.startAt, entry.finishedAt ?: entry.endAt, zone)
+
 internal fun recordingStatusLabel(status: RecordingStatus): String = when (status) {
     RecordingStatus.SCHEDULED -> "Planlandı"
     RecordingStatus.RECORDING -> "Kaydediliyor"
