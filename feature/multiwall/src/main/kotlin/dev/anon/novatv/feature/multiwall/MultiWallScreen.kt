@@ -248,8 +248,8 @@ private fun Pane(
         ),
         border = ClickableSurfaceDefaults.border(
             border = Border(BorderStroke(1.dp, NovaColors.Border), shape = shape),
-            focusedBorder = Border(BorderStroke(2.dp, NovaColors.Accent), shape = shape),
-            pressedBorder = Border(BorderStroke(2.dp, NovaColors.Accent), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, NovaColors.Focus), shape = shape),
+            pressedBorder = Border(BorderStroke(2.dp, NovaColors.Focus), shape = shape),
         ),
         scale = ClickableSurfaceDefaults.scale(1f, 1f, 1f),
         modifier = modifier.testTag("multiwall-pane-$index"),

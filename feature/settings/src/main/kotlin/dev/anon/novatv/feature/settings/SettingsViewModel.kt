@@ -4,7 +4,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import dev.anon.novatv.core.settings.Accent
 import dev.anon.novatv.core.settings.Appearance
 import dev.anon.novatv.core.settings.PreferenceStore
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -50,7 +49,6 @@ class SettingsViewModel(
     )
 
     fun setDark(value: Boolean) = update { preferences.setDarkTheme(value) }
-    fun setAccent(value: Accent) = update { preferences.setAccent(value) }
     fun setClock24h(value: Boolean) = update { preferences.setClock24h(value) }
     fun setAutoFrameRate(value: Boolean) = update { preferences.setAutoFrameRate(value) }
     fun setAutoStart(value: Boolean) = update { preferences.setAutoStart(value) }

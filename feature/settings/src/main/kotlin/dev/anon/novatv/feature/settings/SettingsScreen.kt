@@ -28,7 +28,6 @@ import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.tv.material3.Text
-import dev.anon.novatv.core.settings.Accent
 import dev.anon.novatv.ui.component.NovaBackground
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
@@ -41,7 +40,6 @@ import dev.anon.novatv.ui.theme.NovaType
 fun SettingsScreen(
     state: SettingsUiState,
     onDark: (Boolean) -> Unit,
-    onAccent: (Accent) -> Unit,
     onTypeScale: (Float) -> Unit,
     onClock24h: (Boolean) -> Unit,
     onEpgRowHeight: (Int) -> Unit,
@@ -109,20 +107,6 @@ fun SettingsScreen(
                             selected = !appearance.dark,
                             testTag = "settings-light",
                         )
-                    }
-                }
-
-                Section("Vurgu rengi") {
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Accent.entries.forEachIndexed { index, accent ->
-                            NovaPill(
-                                label = NovaColors.accents.getOrNull(index)?.first
-                                    ?: accent.name,
-                                onClick = { onAccent(accent) },
-                                selected = appearance.accent == accent,
-                                testTag = "settings-accent-${accent.name}",
-                            )
-                        }
                     }
                 }
 

@@ -54,7 +54,7 @@ fun NovaBackground(
             )
             .background(
                 Brush.radialGradient(
-                    colors = listOf(NovaColors.Accent.copy(alpha = 0.05f), Color.Transparent),
+                    colors = listOf(NovaColors.Accent.copy(alpha = 0.04f), Color.Transparent),
                     center = Offset.Zero,
                     radius = 1_100f,
                 ),
@@ -85,9 +85,11 @@ fun NovaRule(modifier: Modifier = Modifier, color: Color = NovaColors.Border.cop
 }
 
 /**
- * Araç çubuğu ve diyalog düğmesi. TV'de dolgu yerine çerçeve kullanır;
- * odaklanınca kehribar dolgu + koyu metin — uzaktan bakınca tek bakışta
- * nerede olduğunuz belli olur.
+ * Araç çubuğu ve diyalog düğmesi. TV'de dolgu yerine çerçeve kullanır.
+ *
+ * Odak her zaman temanın tersi: krem dolgu + mürekkep yazı. Kırmızı dolgu
+ * yok — kırmızı yalnızca birincil eylemde ince bir halka olarak kalır, böylece
+ * ekranın en parlak şeyi hep "neredesin" sorusunun cevabı olur.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -104,28 +106,31 @@ fun NovaPill(
     val shape = RoundedCornerShape(50)
     val idleContainer = when {
         !enabled -> Color.Transparent
-        accent -> NovaColors.Accent.copy(alpha = 0.12f)
-        selected -> NovaColors.AccentSoft
+        accent -> NovaColors.Accent.copy(alpha = 0.10f)
+        selected -> NovaColors.Focus.copy(alpha = 0.07f)
+        danger -> NovaColors.Danger.copy(alpha = 0.10f)
         else -> Color.Transparent
     }
     val idleContent = when {
         !enabled -> NovaColors.TextDim
-        accent || selected -> NovaColors.Accent
+        accent -> NovaColors.Accent
+        selected -> NovaColors.Focus
         danger -> NovaColors.Danger
         else -> NovaColors.TextMuted
     }
     val idleBorder = when {
         !enabled -> NovaColors.Border.copy(alpha = 0.5f)
-        accent -> NovaColors.Accent.copy(alpha = 0.65f)
+        accent -> NovaColors.Accent.copy(alpha = 0.45f)
         danger -> NovaColors.Danger.copy(alpha = 0.5f)
-        selected -> NovaColors.Accent.copy(alpha = 0.55f)
+        selected -> NovaColors.Focus.copy(alpha = 0.55f)
         else -> NovaColors.Border
     }
-    val focusContainer = if (danger) NovaColors.Danger else NovaColors.Accent
-    val focusContent = if (danger) NovaColors.Background else NovaColors.AccentInk
+    val focusContainer = NovaColors.Focus
+    val focusContent = NovaColors.FocusInk
     val focusBorder = when {
         danger -> NovaColors.Danger
-        else -> NovaColors.Accent
+        accent -> NovaColors.Accent
+        else -> NovaColors.Focus
     }
     Surface(
         onClick = onClick,
@@ -143,8 +148,8 @@ fun NovaPill(
         ),
         border = ClickableSurfaceDefaults.border(
             border = Border(border = BorderStroke(1.dp, idleBorder), shape = shape),
-            focusedBorder = Border(border = BorderStroke(1.dp, focusBorder), shape = shape),
-            pressedBorder = Border(border = BorderStroke(1.dp, focusBorder), shape = shape),
+            focusedBorder = Border(border = BorderStroke(2.dp, focusBorder), shape = shape),
+            pressedBorder = Border(border = BorderStroke(2.dp, focusBorder), shape = shape),
             disabledBorder = Border(
                 border = BorderStroke(1.dp, NovaColors.Border.copy(alpha = 0.5f)),
                 shape = shape,

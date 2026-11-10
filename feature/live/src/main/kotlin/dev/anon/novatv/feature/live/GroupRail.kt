@@ -75,7 +75,7 @@ fun GroupRail(
                     ),
                     border = ClickableSurfaceDefaults.border(
                         border = Border(BorderStroke(1.dp, Color.Transparent), shape = shape),
-                        focusedBorder = Border(BorderStroke(1.dp, NovaColors.Border), shape = shape),
+                        focusedBorder = Border(BorderStroke(2.dp, NovaColors.Focus), shape = shape),
                         pressedBorder = Border(BorderStroke(1.dp, NovaColors.Border), shape = shape),
                     ),
                     scale = ClickableSurfaceDefaults.scale(

@@ -321,7 +321,7 @@ fun PosterCard(
         colors = ClickableSurfaceDefaults.colors(
             containerColor = Color.Transparent,
             contentColor = NovaColors.Text,
-            focusedContainerColor = NovaColors.Accent.copy(alpha = 0.14f),
+            focusedContainerColor = NovaColors.Focus.copy(alpha = 0.08f),
             focusedContentColor = NovaColors.Text,
             pressedContainerColor = NovaColors.AccentSoft,
             pressedContentColor = NovaColors.Text,
@@ -332,11 +332,11 @@ fun PosterCard(
                 shape = shape,
             ),
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Accent),
+                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Focus),
                 shape = shape,
             ),
             pressedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Accent),
+                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Focus),
                 shape = shape,
             ),
         ),
@@ -423,7 +423,7 @@ private fun ContinueCard(item: ContinueItem, onClick: () -> Unit) {
         colors = ClickableSurfaceDefaults.colors(
             containerColor = NovaColors.Surface,
             contentColor = NovaColors.Text,
-            focusedContainerColor = NovaColors.Accent.copy(alpha = 0.14f),
+            focusedContainerColor = NovaColors.Focus.copy(alpha = 0.08f),
             focusedContentColor = NovaColors.Text,
             pressedContainerColor = NovaColors.AccentSoft,
             pressedContentColor = NovaColors.Text,
@@ -434,11 +434,11 @@ private fun ContinueCard(item: ContinueItem, onClick: () -> Unit) {
                 shape = shape,
             ),
             focusedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Accent),
+                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Focus),
                 shape = shape,
             ),
             pressedBorder = Border(
-                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Accent),
+                border = androidx.compose.foundation.BorderStroke(2.dp, NovaColors.Focus),
                 shape = shape,
             ),
         ),

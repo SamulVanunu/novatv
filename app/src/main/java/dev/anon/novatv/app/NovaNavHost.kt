@@ -579,7 +579,6 @@ fun NovaNavHost(graph: NovaGraph) {
             SettingsScreen(
                 state = state,
                 onDark = viewModel::setDark,
-                onAccent = viewModel::setAccent,
                 onTypeScale = viewModel::setTypeScale,
                 onClock24h = viewModel::setClock24h,
                 onEpgRowHeight = viewModel::setEpgRowHeight,

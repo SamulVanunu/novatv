@@ -20,6 +20,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -459,15 +460,15 @@ private fun ProgramBlock(
         colors = ClickableSurfaceDefaults.colors(
             containerColor = container,
             contentColor = content,
-            focusedContainerColor = NovaColors.Accent,
-            focusedContentColor = NovaColors.AccentInk,
-            pressedContainerColor = NovaColors.Accent,
-            pressedContentColor = NovaColors.AccentInk,
+            focusedContainerColor = NovaColors.Focus,
+            focusedContentColor = NovaColors.FocusInk,
+            pressedContainerColor = NovaColors.Focus,
+            pressedContentColor = NovaColors.FocusInk,
         ),
         border = ClickableSurfaceDefaults.border(
             border = Border(border = BorderStroke(1.dp, borderColor), shape = shape),
-            focusedBorder = Border(border = BorderStroke(1.dp, NovaColors.Accent), shape = shape),
-            pressedBorder = Border(border = BorderStroke(1.dp, NovaColors.Accent), shape = shape),
+            focusedBorder = Border(border = BorderStroke(2.dp, NovaColors.Focus), shape = shape),
+            pressedBorder = Border(border = BorderStroke(2.dp, NovaColors.Focus), shape = shape),
         ),
         scale = ClickableSurfaceDefaults.scale(1f, 1f, 0.98f),
         modifier = modifier,
@@ -478,15 +479,20 @@ private fun ProgramBlock(
         ) {
             Text(
                 text = program.title,
-                style = NovaType.Body.copy(fontSize = 13.sp, lineHeight = 16.sp),
+                style = NovaType.Body.copy(
+                    fontSize = 13.sp,
+                    lineHeight = 16.sp,
+                    // Renk yüzeyden gelsin: odakta krem dolgu üstüne mürekkep.
+                    color = Color.Unspecified,
+                ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(
-                text = timeRange(program.startAt, program.endAt, clock24h),
+                text = timeText(program.startAt, clock24h),
                 style = NovaType.Number.copy(
                     fontSize = 11.sp,
-                    color = if (current) NovaColors.Accent else NovaColors.TextDim,
+                    color = Color.Unspecified,
                 ),
                 maxLines = 1,
             )

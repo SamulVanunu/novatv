@@ -76,7 +76,7 @@ fun ChannelRow(
             border = Border(BorderStroke(1.dp, Color.Transparent), shape = shape),
             // Odaklı satır kehribar çerçeveyle işaretlenir; 3 metreden
             // bakınca hangi satırda olduğunuz bir bakışta belli olur.
-            focusedBorder = Border(BorderStroke(2.dp, NovaColors.Accent), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, NovaColors.Focus), shape = shape),
             pressedBorder = Border(BorderStroke(2.dp, NovaColors.Accent), shape = shape),
         ),
         scale = ClickableSurfaceDefaults.scale(
@@ -183,7 +183,7 @@ fun ChannelCard(
         ),
         border = ClickableSurfaceDefaults.border(
             border = Border(BorderStroke(1.dp, NovaColors.Border.copy(alpha = 0.8f)), shape = shape),
-            focusedBorder = Border(BorderStroke(2.dp, NovaColors.Accent), shape = shape),
+            focusedBorder = Border(BorderStroke(2.dp, NovaColors.Focus), shape = shape),
             pressedBorder = Border(BorderStroke(2.dp, NovaColors.Accent), shape = shape),
         ),
         scale = ClickableSurfaceDefaults.scale(

@@ -16,7 +16,6 @@ import androidx.tv.material3.MaterialTheme
 import dev.anon.novatv.core.settings.Appearance
 import dev.anon.novatv.feature.player.PlayerPip
 import dev.anon.novatv.feature.player.enterPlayerPictureInPicture
-import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,13 +30,9 @@ class MainActivity : ComponentActivity() {
             val appearance by graph.preferences.appearance.collectAsStateWithLifecycle(
                 initialValue = Appearance(),
             )
-            val accent = NovaColors.accents
-                .getOrNull(appearance.accent.ordinal)
-                ?.second
             NovaTheme(
                 dark = appearance.dark,
                 typeScale = appearance.typeScale,
-                accent = accent,
             ) {
                 androidx.compose.foundation.layout.Box(
                     modifier = Modifier
