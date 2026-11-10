@@ -15,9 +15,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -32,6 +33,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,15 +66,14 @@ import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val CHANNEL_COLUMN = 172.dp
 private val HOUR_WIDTH = 188.dp
 private const val MINUTES_PER_DAY = 24 * 60
 
-/** Ekran açılırken ilk odağın (gün sekmeleri) yerleşmesi için beklenen süre. */
-private const val FOCUS_SETTLE_MS = 400L
+/** Rehber ızgarasına girerken odak isteğinin denendiği kare sayısı. */
+private const val FOCUS_ATTEMPTS = 8
 /** Blok genişlikleri dp cinsinden: saat genişliği dakikaya bölünür. */
 private val DP_PER_MINUTE = HOUR_WIDTH.value / 60f
 
@@ -99,21 +104,20 @@ fun EpgScreen(
     val firstProgramFocus = remember { FocusRequester() }
     var selected by remember { mutableStateOf<Pair<Channel, EpgProgram>?>(null) }
     val to = from + EpgRepository.DAY_MS
+    val gridState = rememberLazyListState()
     val firstRowId = remember(state.rows) {
         state.rows.firstOrNull { it.programs.isNotEmpty() }?.channel?.id
     }
+    // Rehberi olmayan kanallar listenin başında olabilir; aşağı basınca odak
+    // görünür bir programa gitsin diye liste ilk dolu satıra kaydırılır.
+    val firstProgramRow = remember(state.rows) {
+        state.rows.indexOfFirst { it.programs.isNotEmpty() }
+    }
 
-    // Rehber yüklenince odak şimdiki programa gider. Odaklama, kaydırılabilir
-    // alanı odaklanan bloğa getirmek için kaydırmayı kendiliğinden değiştirir;
-    // bu yüzden "şimdi" hizalaması odaktan bir kare sonra yapılır.
+    // Gün görünümü gece yarısından başlar; "bugün" açılışta şimdiye konumlanır.
+    // Odak gün sekmelerinde kalır (ilk odak yarışı yok); aşağı basınca ızgaraya
+    // şimdiki programdan girilir.
     LaunchedEffect(state.dayOffset, state.rows.size) {
-        if (state.rows.any { it.programs.isNotEmpty() }) {
-            // Ekran ilk odağını (gün sekmeleri) yerleştirdikten sonra
-            // ızgaraya geçilir; aksi hâlde odak ilk karede geri alınır.
-            delay(FOCUS_SETTLE_MS)
-            runCatching { firstProgramFocus.requestFocus() }
-            repeat(2) { withFrameNanos { } }
-        }
         val minutes = if (state.dayOffset == 0) {
             ((state.now - from) / 60_000L).coerceIn(0, MINUTES_PER_DAY.toLong())
         } else {
@@ -133,6 +137,29 @@ fun EpgScreen(
                 onSelectDay = onSelectDay,
                 onRefresh = onRefresh,
                 onBack = onBack,
+                onEnterGrid = {
+                    if (firstProgramRow < 0) {
+                        // Rehber boş: aşağı basmak boş ekranın kendi düğmesine
+                        // gitsin, tuşu yutmayalım.
+                        false
+                    } else {
+                        // Tuş olayı işlenirken odak taşınamıyor; istek bir sonraki
+                        // kareye bırakılır. Hedef satır LazyColumn'da henüz
+                        // oluşmamış olabilir; önce oraya kaydırılıp yeniden denenir.
+                        scope.launch {
+                            if (firstProgramRow > 0) {
+                                gridState.scrollToItem(firstProgramRow)
+                            }
+                            repeat(FOCUS_ATTEMPTS) {
+                                withFrameNanos { }
+                                if (runCatching { firstProgramFocus.requestFocus() }.getOrDefault(false)) {
+                                    return@launch
+                                }
+                            }
+                        }
+                        true
+                    }
+                },
                 onNow = {
                     val minutes = ((state.now - from) / 60_000L).coerceIn(0, MINUTES_PER_DAY.toLong())
                     val px = with(density) { (HOUR_WIDTH * (minutes / 60f)).roundToPx() }
@@ -171,6 +198,7 @@ fun EpgScreen(
                 )
 
                 else -> LazyColumn(
+                    state = gridState,
                     modifier = Modifier.fillMaxSize().testTag("epg-grid"),
                     verticalArrangement = Arrangement.spacedBy(3.dp),
                 ) {
@@ -223,9 +251,18 @@ private fun EpgHeader(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     onNow: () -> Unit,
+    onEnterGrid: () -> Boolean = { false },
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            // Gün sekmelerinden aşağı basınca odak ızgaraya, şimdiki programa
+            // geçer; aksi hâlde odak saate göre en yakın bloğa düşerdi.
+            .onPreviewKeyEvent { event ->
+                event.type == KeyEventType.KeyDown &&
+                    event.key == Key.DirectionDown &&
+                    onEnterGrid()
+            },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
@@ -299,13 +336,13 @@ private fun GuideRowView(
 ) {
     val blocks = remember(row.programs, from, to) { buildBlocks(row.programs, from, to) }
     // Odak, günün ilk programı yerine "şimdi" oynayan programa gider.
-    val focusTarget = remember(blocks, now, focusRequester) {
-        if (focusRequester == null) {
-            null
-        } else {
-            blocks.firstOrNull { it.program != null && it.start <= now && now < it.end }
-                ?: blocks.firstOrNull { it.program != null }
-        }
+    // Blok kimliğiyle değil sırasıyla karşılaştırılır: rehber yeniden
+    // üretildiğinde bloklar yeni örnekler olur, kimlik eşleşmesi tutmaz.
+    val focusIndex = if (focusRequester == null) {
+        -1
+    } else {
+        blocks.indexOfFirst { it.program != null && it.start <= now && now < it.end }
+            .let { if (it >= 0) it else blocks.indexOfFirst { it.program != null } }
     }
     val height = rowHeightDp.dp
 
@@ -317,7 +354,7 @@ private fun GuideRowView(
         )
         Box(modifier = Modifier.weight(1f).fillMaxHeight().clipToBounds()) {
             Row(modifier = Modifier.horizontalScroll(scroll).height(height)) {
-                blocks.forEach { block ->
+                blocks.forEachIndexed { index, block ->
                     val width = (((block.end - block.start) / 60_000L) * DP_PER_MINUTE)
                         .coerceAtLeast(2f)
                         .dp
@@ -331,7 +368,7 @@ private fun GuideRowView(
                                 .background(NovaColors.Surface.copy(alpha = 0.35f)),
                         )
                     } else {
-                        val requestFocus = focusTarget != null && focusTarget === block
+                        val requestFocus = index == focusIndex
                         ProgramBlock(
                             program = program,
                             current = program.startAt <= now && program.endAt > now,

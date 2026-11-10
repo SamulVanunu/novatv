@@ -2,12 +2,14 @@ package dev.anon.novatv.core.sync
 
 import android.util.Log
 import dev.anon.novatv.core.database.NovaDatabase
+import dev.anon.novatv.core.database.entity.ChannelEntity
 import dev.anon.novatv.core.database.entity.EpgChannelEntity
 import dev.anon.novatv.core.database.entity.EpgProgramEntity
 import dev.anon.novatv.core.database.mapper.toModel
 import dev.anon.novatv.core.epg.XmltvParser
 import dev.anon.novatv.core.model.Channel
 import dev.anon.novatv.core.model.EpgProgram
+import dev.anon.novatv.core.model.SearchText
 import dev.anon.novatv.core.network.NovaHttp
 import dev.anon.novatv.core.network.SourceHttp
 import dev.anon.novatv.core.network.SourceNetworkException
@@ -83,16 +85,18 @@ class EpgRepository(
         val source = adapter.epg() ?: return EpgSyncResult(skippedReason = "Kaynak EPG sunmuyor")
 
         val channels = db.channelDao().byPlaylist(playlistId)
-        val channelByTvg = HashMap<String, Long>(channels.size * 2)
-        channels.forEach { entity ->
-            val tvg = entity.tvgId?.trim()?.takeIf { it.isNotEmpty() } ?: return@forEach
-            channelByTvg[tvg] = entity.id
-            channelByTvg[tvg.lowercase()] = entity.id
-        }
-        if (channelByTvg.isEmpty()) {
+        // Gerçek listelerin çoğunda `tvg-id` boştur; eşleşme kanal adından
+        // yapılır. XMLTV kanal kimliği yine kullanılır, yalnızca kanal
+        // satırına giden yol ad üzerinden kurulur.
+        val index = EpgChannelIndex(channels)
+        if (index.isEmpty) {
             return EpgSyncResult(skippedReason = "Kanallarda tvg-id yok")
         }
-        Log.i(TAG, "epg sync start playlist=$playlistId channels=${channels.size} tvg=${channelByTvg.size / 2}")
+        Log.i(
+            TAG,
+            "epg sync start playlist=$playlistId channels=${channels.size} " +
+                "tvg=${index.tvgKeys} names=${index.nameKeys}",
+        )
 
         val windowDays = runCatching { preferences?.appearance?.first()?.windowDays }
             .getOrNull() ?: DEFAULT_WINDOW_DAYS
@@ -123,8 +127,12 @@ class EpgRepository(
         fun epgChannelId(tvg: String): Long? =
             epgChannelIdByTvg[tvg] ?: epgChannelIdByTvg[tvg.lowercase()]
 
-        fun channelId(tvg: String): Long? =
-            channelByTvg[tvg] ?: channelByTvg[tvg.lowercase()]
+        fun channelId(tvg: String): Long? = index.byTvgId(tvg)
+
+        /** XMLTV kanal kimliği ile kanal satırı eşleşmesi (ad eşleşmesi dâhil). */
+        val channelRowByXmlId = HashMap<String, Long>()
+
+        fun channelIdByName(name: String): Long? = index.byName(name)
 
         val http = SourceHttp(
             client = NovaHttp.client(),
@@ -160,8 +168,23 @@ class EpgRepository(
                         input = input,
                         onChannel = { xmlChannel ->
                             seenChannels++
-                            val channelRowId = channelId(xmlChannel.id) ?: return@parse
-                            val epgId = epgChannelId(xmlChannel.id) ?: return@parse
+                            val channelRowId = channelId(xmlChannel.id)
+                                ?: channelIdByName(xmlChannel.displayName)
+                                ?: return@parse
+                            channelRowByXmlId[xmlChannel.id] = channelRowId
+                            val epgId = epgChannelId(xmlChannel.id) ?: runBlocking {
+                                val id = db.epgDao().upsertChannel(
+                                    EpgChannelEntity(
+                                        playlistId = playlistId,
+                                        tvgId = xmlChannel.id,
+                                        displayName = xmlChannel.displayName,
+                                        iconUrl = xmlChannel.iconUrl
+                                            ?: db.channelDao().byId(channelRowId)?.logoUrl,
+                                    ),
+                                )
+                                epgChannelIdByTvg[xmlChannel.id] = id
+                                id
+                            }
                             runBlocking {
                                 db.epgDao().upsertChannel(
                                     EpgChannelEntity(
@@ -181,10 +204,12 @@ class EpgRepository(
                                 unmatched++
                                 return@parse
                             }
-                            val channelRowId = channelId(program.channelId) ?: run {
-                                unmatched++
-                                return@parse
-                            }
+                            val channelRowId = channelRowByXmlId[program.channelId]
+                                ?: channelId(program.channelId)
+                                ?: run {
+                                    unmatched++
+                                    return@parse
+                                }
                             val endAt = program.endAt ?: (program.startAt + DEFAULT_PROGRAM_MS)
                             if (endAt <= from || program.startAt >= to) {
                                 windowSkipped++
@@ -304,5 +329,44 @@ class EpgRepository(
         const val DEFAULT_PROGRAM_MS = 30 * 60 * 1_000L
         private const val BATCH_SIZE = 500
         private const val TICK_MS = 30_000L
+    }
+}
+
+/**
+ * XMLTV kanallarını yerel kanal satırlarıyla eşler. Önce `tvg-id`, yoksa
+ * normalize edilmiş kanal adı kullanılır; gerçek M3U listelerinde `tvg-id`
+ * sıklıkla boş olduğu için ad eşleşmesi zorunludur.
+ */
+internal class EpgChannelIndex(channels: List<ChannelEntity>) {
+
+    private val byTvg = HashMap<String, Long>(channels.size * 2)
+    private val byName = HashMap<String, Long>(channels.size * 2)
+
+    init {
+        channels.forEach { entity ->
+            entity.tvgId?.trim()?.takeIf { it.isNotEmpty() }?.let { tvg ->
+                byTvg[tvg] = entity.id
+                byTvg[tvg.lowercase()] = entity.id
+            }
+            keys(entity.nameNormalized.ifBlank { entity.name }).forEach { key ->
+                byName.putIfAbsent(key, entity.id)
+            }
+        }
+    }
+
+    val isEmpty: Boolean get() = byTvg.isEmpty() && byName.isEmpty()
+    val tvgKeys: Int get() = byTvg.size / 2
+    val nameKeys: Int get() = byName.size
+
+    fun byTvgId(tvgId: String): Long? = byTvg[tvgId] ?: byTvg[tvgId.lowercase()]
+
+    fun byName(name: String): Long? = keys(name).firstNotNullOfOrNull { byName[it] }
+
+    /** "TRT 1" hem "trt 1" hem "trt1" ile eşleşir. */
+    private fun keys(name: String): List<String> {
+        val normalized = SearchText.normalize(name)
+        if (normalized.isEmpty()) return emptyList()
+        val compact = normalized.replace(" ", "")
+        return if (compact == normalized) listOf(normalized) else listOf(normalized, compact)
     }
 }
