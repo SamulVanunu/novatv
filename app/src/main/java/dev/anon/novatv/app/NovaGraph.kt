@@ -6,6 +6,7 @@ import dev.anon.novatv.core.database.NovaDatabase
 import dev.anon.novatv.core.recording.RecordingScheduler
 import dev.anon.novatv.core.recording.RecordingStorage
 import dev.anon.novatv.core.recording.RecordingStore
+import dev.anon.novatv.core.settings.CredentialStore
 import dev.anon.novatv.core.settings.EncryptedCredentialStore
 import dev.anon.novatv.core.settings.PreferenceStore
 import dev.anon.novatv.core.source.SourceAdapterRegistry
@@ -29,7 +30,7 @@ class NovaGraph(context: Context) {
 
     val database: NovaDatabase = NovaDatabase.build(appContext)
     val preferences: PreferenceStore = PreferenceStore.create(appContext)
-    val credentials: EncryptedCredentialStore = EncryptedCredentialStore(appContext)
+    val credentials: CredentialStore = EncryptedCredentialStore.open(appContext)
     val registry: SourceAdapterRegistry = SourceAdapterRegistry(
         setOf(XtreamFactory(), M3uFactory(), StalkerFactory()),
     )
