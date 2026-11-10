@@ -682,6 +682,12 @@ private fun PlayerRouteContent(
     LaunchedEffect(autoFrameRate, frameRate) {
         if (autoFrameRate) dev.anon.novatv.feature.player.AutoFrameRate.apply(activity, frameRate)
     }
+    // Oynatıcıdan çıkınca ekran modu varsayılana döner; yoksa menü 24 Hz'de kalır.
+    DisposableEffect(autoFrameRate) {
+        onDispose {
+            if (autoFrameRate) dev.anon.novatv.feature.player.AutoFrameRate.reset(activity)
+        }
+    }
     LaunchedEffect(sleepMinutes) {
         if (sleepMinutes > 0) {
             delay(sleepMinutes * 60_000L)
