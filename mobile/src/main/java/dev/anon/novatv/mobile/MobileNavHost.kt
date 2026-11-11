@@ -5,21 +5,36 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -30,6 +45,8 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.paging.compose.collectAsLazyPagingItems
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.Text
 import dev.anon.novatv.app.common.NovaGraph
 import dev.anon.novatv.app.common.ParentalGuardDialog
 import dev.anon.novatv.app.common.ParentalGuardState
@@ -39,6 +56,7 @@ import dev.anon.novatv.app.common.hasDocumentPicker
 import dev.anon.novatv.app.common.rememberParentalGuard
 import dev.anon.novatv.core.model.Channel
 import dev.anon.novatv.core.model.ItemType
+import dev.anon.novatv.core.model.Playlist
 import dev.anon.novatv.core.player.PlaybackController
 import dev.anon.novatv.core.settings.Appearance
 import dev.anon.novatv.core.sync.SearchKind
@@ -77,12 +95,20 @@ import dev.anon.novatv.feature.settings.SearchViewModel
 import dev.anon.novatv.feature.settings.SettingsRoutes
 import dev.anon.novatv.feature.settings.SettingsScreen
 import dev.anon.novatv.feature.settings.SettingsViewModel
+import dev.anon.novatv.ui.component.NovaLabel
+import dev.anon.novatv.ui.component.NovaPanel
+import dev.anon.novatv.ui.component.NovaPill
+import dev.anon.novatv.ui.component.NovaTapSurface
 import dev.anon.novatv.ui.layout.NovaScaffold
 import dev.anon.novatv.ui.layout.NovaTab
 import dev.anon.novatv.ui.layout.rememberNovaWindow
+import dev.anon.novatv.ui.theme.NovaColors
+import dev.anon.novatv.ui.theme.NovaType
 import java.io.File
 import java.time.Instant
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -95,9 +121,15 @@ private object MobileTabs {
     const val GUIDE = "guide"
     const val LIBRARY = "library"
     const val RECORDINGS = "recordings"
-    // "Daha" ekranı gelene kadar Ayarlar'ı açar.
     const val MORE = "more"
 }
+
+/**
+ * "Daha" menüsünün rotası. Sekme anahtarı [MobileTabs.MORE] ile karışmasın
+ * diye ayrı bir dize; rota yalnız telefondadır, `Routes` (iki uygulamanın
+ * ortak sabitleri) bu ekranı bilmez.
+ */
+private const val MORE_ROUTE = "more-menu"
 
 /** Beş sekme: Canlı, Rehber, Kütüphane, Kayıtlar, Daha. */
 private val Tabs = listOf(
@@ -125,6 +157,23 @@ fun MobileNavHost(graph: NovaGraph) {
     val window = rememberNovaWindow()
     val parentalGuard = rememberParentalGuard(graph.profiles)
     val channelResolver = remember(graph) { GraphChannelResolver(graph) }
+
+    // Açılış hedefi depodan bir kez çözülür; `NavHost` kurulmadan önce hazır
+    // olmalı. Okuma düşerse `resolveStartInputs` "kaynak yok"a indirger, yani
+    // ekran boş kalmaz: Canlı açılır ve kaynak çağrısı görünür. TV'deki
+    // `NovaNavHost` da aynı yarışı aynı şekilde bekleyerek çözer.
+    val startInputs by produceState<StartInputs?>(initialValue = null) {
+        value = resolveStartInputs(graph)
+    }
+    val resolved = startInputs ?: return
+    val startRoute = startDestination(resolved.hasSources, resolved.lastChannelRoute)
+    // Kaynak sayısı akıştan okunur: kaynak eklenince boş açılış yüzeyi
+    // kendiliğinden kalkar, tek seferlik bir bayrağa bağlı değildir. Akış
+    // düşerse yukarıda çözülen değere dönülür — sorgu hatası ekranı çökertmez.
+    val sourceCount by graph.playlists.observeAll()
+        .map { playlists -> activeSourceCount(playlists) }
+        .catch { emit(if (resolved.hasSources) 1 else 0) }
+        .collectAsStateWithLifecycle(initialValue = if (resolved.hasSources) 1 else 0)
 
     // Kök hedeflerde kabuk görünür; alt ekranlar tam ekran.
     val entry by navController.currentBackStackEntryAsState()
@@ -186,6 +235,8 @@ fun MobileNavHost(graph: NovaGraph) {
                     appearance = appearance,
                     channelResolver = channelResolver,
                     parentalGuard = parentalGuard,
+                    startRoute = startRoute,
+                    needsSourceOnboarding = needsSourceOnboarding(sourceCount == 0),
                     // Sekme kökü: boşluk yalnız kabuktan gelir.
                     contentModifier = Modifier.fillMaxSize().padding(padding),
                 )
@@ -199,6 +250,8 @@ fun MobileNavHost(graph: NovaGraph) {
                 appearance = appearance,
                 channelResolver = channelResolver,
                 parentalGuard = parentalGuard,
+                startRoute = startRoute,
+                needsSourceOnboarding = needsSourceOnboarding(sourceCount == 0),
                 contentModifier = Modifier.fillMaxSize(),
             )
         }
@@ -214,36 +267,108 @@ private fun MobileGraph(
     appearance: Appearance,
     channelResolver: ChannelStreamResolver,
     parentalGuard: ParentalGuardState,
+    startRoute: String,
+    needsSourceOnboarding: Boolean,
     contentModifier: Modifier,
 ) {
-    NavHost(navController = navController, startDestination = Routes.LIVE) {
+    NavHost(navController = navController, startDestination = startRoute) {
         composable(Routes.LIVE) {
             val viewModel: LiveViewModel = viewModel(
                 factory = LiveViewModel.factory(graph.channels, graph.preferences),
             )
             val state by viewModel.state.collectAsStateWithLifecycle()
             val channels = viewModel.channels.collectAsLazyPagingItems()
-            LiveScreen(
-                state = state,
-                channels = channels,
-                onSelectGroup = viewModel::selectGroup,
-                onQueryChange = viewModel::setQuery,
-                onToggleFavorites = viewModel::toggleFavoritesOnly,
-                onToggleGrid = viewModel::toggleGrid,
-                onChannelClick = { channel -> navController.navigate(PlayerRoutes.of(channel.id)) },
-                onToggleFavorite = viewModel::toggleFavorite,
-                onHideChannel = viewModel::hideChannel,
-                onHideGroup = viewModel::hideGroup,
-                onSetNumber = viewModel::setNumber,
-                onChannelFocused = viewModel::onChannelFocused,
-                onOpenPlaylists = { navController.navigate(PlaylistsRoutes.LIST) },
-                onOpenGuide = { navController.navigate(EpgRoutes.of()) },
-                onOpenLibrary = { navController.navigate(LibraryRoutes.ROUTE) },
-                onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
-                onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
-                onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
-                onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
-                window = rememberNovaWindow(),
+            // Boş açılış yüzeyi mobil rotaya sarılır: `LiveScreen`'in
+            // imzası ve TV yolu değişmez. Yüzey görünürken `LiveScreen`
+            // hiç kurulmaz; arkada etkin bir liste bırakılmaz.
+            SourceOnboardingGate(
+                visible = needsSourceOnboarding,
+                graph = graph,
+                navController = navController,
+                modifier = contentModifier,
+            ) {
+                LiveScreen(
+                    state = state,
+                    channels = channels,
+                    onSelectGroup = viewModel::selectGroup,
+                    onQueryChange = viewModel::setQuery,
+                    onToggleFavorites = viewModel::toggleFavoritesOnly,
+                    onToggleGrid = viewModel::toggleGrid,
+                    onChannelClick = { channel -> navController.navigate(PlayerRoutes.of(channel.id)) },
+                    onToggleFavorite = viewModel::toggleFavorite,
+                    onHideChannel = viewModel::hideChannel,
+                    onHideGroup = viewModel::hideGroup,
+                    onSetNumber = viewModel::setNumber,
+                    onChannelFocused = viewModel::onChannelFocused,
+                    onOpenPlaylists = { navController.navigate(PlaylistsRoutes.LIST) },
+                    onOpenGuide = { navController.navigate(EpgRoutes.of()) },
+                    onOpenLibrary = { navController.navigate(LibraryRoutes.ROUTE) },
+                    onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
+                    onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
+                    onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
+                    onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
+                    window = rememberNovaWindow(),
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+
+        composable(MORE_ROUTE) {
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+            // Son yedek/geri yükleme sonucu; her yolda doldurulur, yoksa
+            // hatalı dosya seçimi ekranda hiçbir şey değiştirmiyordu.
+            var message by remember { mutableStateOf<String?>(null) }
+            val backupLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.CreateDocument("application/json"),
+            ) { uri ->
+                if (uri != null) {
+                    // Ayarlar'daki akışın aynısı: belge seçici varsa dosyaya,
+                    // yoksa uygulamanın kendi yedek dosyasına yazar.
+                    scope.launch {
+                        message = runCatching { graph.backup.backup(uri) }
+                            .getOrElse { "Yedek alınamadı" }
+                    }
+                }
+            }
+            val restoreLauncher = rememberLauncherForActivityResult(
+                ActivityResultContracts.OpenDocument(),
+            ) { uri ->
+                if (uri != null) {
+                    scope.launch {
+                        message = runCatching { graph.backup.restore(uri) }
+                            .getOrElse { "Yedek geri yüklenemedi" }
+                    }
+                }
+            }
+            MobileMoreScreen(
+                onSearch = { navController.navigate(SettingsRoutes.SEARCH) },
+                onMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
+                onSources = { navController.navigate(PlaylistsRoutes.LIST) },
+                onSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
+                onBackup = {
+                    if (hasDocumentPicker(context)) {
+                        backupLauncher.launch("novatv-backup.json")
+                    } else {
+                        scope.launch {
+                            message = runCatching { graph.backup.backup(null) }
+                                .getOrElse { "Yedek alınamadı" }
+                        }
+                    }
+                },
+                onRestore = {
+                    if (hasDocumentPicker(context)) {
+                        restoreLauncher.launch(
+                            arrayOf("application/json", "text/plain", "*/*"),
+                        )
+                    } else {
+                        scope.launch {
+                            message = runCatching { graph.backup.restore(null) }
+                                .getOrElse { "Yedek geri yüklenemedi" }
+                        }
+                    }
+                },
+                message = message,
                 modifier = contentModifier,
             )
         }
@@ -748,6 +873,123 @@ private fun MobileGraph(
     }
 }
 
+/**
+ * Canlı sekmesindeki boş açılış yüzeyi.
+ *
+ * Kaynak yokken `LiveScreen` hiç kurulmaz: altında etkin ama görünmez bir
+ * kanal listesi bırakmak, panelin kapatmadığı yerlerden satır ve arama
+ * alanının dokunulması demekti. Bunun yerine ekranın tamamı bu yüzey olur;
+ * kaynak eklenince yüzey kalkar ve `content()` normal `LiveScreen` olarak
+ * açılır. Eylemler mevcut akışlar: `PlaylistsRoutes.form()` ve Ayarlar'daki
+ * yedek geri yükleme (`OpenDocument` + `BackupManager`).
+ *
+ * Geri yükleme metni kısa tutulmaz: `BackupManager` yalnız görünüm ve profil
+ * adlarını taşır, kanal listesi yedeğe girmez. Metin bunu açıkça söylemezse
+ * kullanıcı kaynak bekleyip boş ekranda kalır.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun SourceOnboardingGate(
+    visible: Boolean,
+    graph: NovaGraph,
+    navController: NavHostController,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    if (!visible) {
+        content()
+        return
+    }
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var message by remember { mutableStateOf<String?>(null) }
+    val restoreLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri != null) {
+            scope.launch {
+                message = runCatching { graph.backup.restore(uri) }
+                    .getOrElse { "Yedek geri yüklenemedi" }
+            }
+        }
+    }
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        NovaPanel(
+            modifier = Modifier
+                .fillMaxWidth()
+                .testTag("source-onboarding"),
+            width = Dp.Unspecified,
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                NovaLabel("Kaynak")
+                Text(text = "Henüz kaynak yok", style = NovaType.Title)
+                Text(
+                    text = "Kanal listesi eklemek için bir kaynak gerekir. " +
+                        "TV yedeği yalnız görünüm ayarlarını ve profil adlarını " +
+                        "taşır; kanal listeniz yedekte yer almaz.",
+                    style = NovaType.BodyMuted,
+                )
+            }
+            NovaPill(
+                label = "Kaynak ekle",
+                onClick = { navController.navigate(PlaylistsRoutes.form()) },
+                accent = true,
+                testTag = "onboarding-add-source",
+            )
+            // Satır 56 dp: pill'in dokunma hedefi tek başına 48 dp'yi geçer.
+            NovaTapSurface(
+                onClick = {
+                    if (hasDocumentPicker(context)) {
+                        restoreLauncher.launch(
+                            arrayOf("application/json", "text/plain", "*/*"),
+                        )
+                    } else {
+                        scope.launch {
+                            message = runCatching { graph.backup.restore(null) }
+                                .getOrElse { "Yedek geri yüklenemedi" }
+                        }
+                    }
+                },
+                contentColor = NovaColors.Text,
+                focusedContentColor = NovaColors.FocusInk,
+                focusedContainerColor = NovaColors.Focus,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 56.dp)
+                    .testTag("onboarding-restore-backup"),
+            ) { state ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "TV yedeğini geri yükle (görünüm ve profiller)",
+                        style = NovaType.Body.copy(color = state.contentColor),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            message?.let { text ->
+                Text(
+                    text = text,
+                    style = NovaType.Small.copy(color = NovaColors.Accent),
+                    modifier = Modifier.testTag("onboarding-message"),
+                )
+            }
+        }
+    }
+}
+
 /** Akış çözümleyicisini grafiğe bağlar; TV'dekiyle aynı sözleşme. */
 private class GraphChannelResolver(private val graph: NovaGraph) : ChannelStreamResolver {
     override suspend fun resolve(channel: Channel) = graph.streamResolver.resolve(channel)
@@ -768,12 +1010,49 @@ private fun isFullBleedRoute(route: String?): Boolean = when (route) {
     else -> false
 }
 
+/**
+ * Açılış hedefi: kaynak yoksa her zaman Canlı. Kaynak varken son izlenen
+ * kanalın rotası varsa oradan devam edilir.
+ *
+ * Kaynak yokken son kanal rotası yok sayılır: geçmiş silinmiş bir kaynağın
+ * kanalını işaret edebilir ve oynatıcı boş açılır.
+ */
+internal fun startDestination(hasSources: Boolean, lastChannelRoute: String?): String =
+    if (hasSources && lastChannelRoute != null) lastChannelRoute else Routes.LIVE
+
+/**
+ * Boş açılış yönlendirmesi gerekiyor mu: hiç kaynak yokken Canlı ekranı
+ * kanal yerine kaynak ekleme çağrısı gösterir.
+ */
+internal fun needsSourceOnboarding(hasSources: Boolean): Boolean = !hasSources
+
+/**
+ * Kullanılabilir kaynak sayısı: yalnız etkin listeler sayılır, çünkü kanallar
+ * da yalnız etkin listelerden gelir. Açılış kararı ve boş açılış yüzeyi aynı
+ * kuralı buradan okur; iki yerde ayrışmaz.
+ */
+internal fun activeSourceCount(playlists: List<Playlist>): Int = playlists.count { it.isActive }
+
+/**
+ * Açılış kararının girdileri. İkisi de depodan bir kez okunur; okuma
+ * başarısız olursa navigasyon çökmesin diye "kaynak yok, Canlı"ya düşülür.
+ */
+private data class StartInputs(val hasSources: Boolean, val lastChannelRoute: String?)
+
+private suspend fun resolveStartInputs(graph: NovaGraph): StartInputs = runCatching {
+    val hasSources = activeSourceCount(graph.playlists.observeAll().first()) > 0
+    val route = if (hasSources) PlayerRoutes.lastWatched(graph.channels) else null
+    StartInputs(hasSources = hasSources, lastChannelRoute = route)
+}.getOrElse { StartInputs(hasSources = false, lastChannelRoute = null) }
+
 /** Rota → sekme eşlemesi; alt ekranlar (oynatıcı, detay, form) `null`. */
 private fun tabForRoute(route: String?): String? = when (route) {
     Routes.LIVE -> MobileTabs.LIVE
     EpgRoutes.PATTERN -> MobileTabs.GUIDE
     LibraryRoutes.ROUTE -> MobileTabs.LIBRARY
     RecordingsRoutes.ROUTE -> MobileTabs.RECORDINGS
+    MORE_ROUTE -> MobileTabs.MORE
+    // Ayarlar menüden açılır; menüye bağlı olduğu için "Daha" sekmesi seçili kalır.
     SettingsRoutes.SETTINGS -> MobileTabs.MORE
     else -> null
 }
@@ -789,7 +1068,8 @@ private fun NavHostController.openTab(key: String) {
         MobileTabs.GUIDE -> EpgRoutes.of()
         MobileTabs.LIBRARY -> LibraryRoutes.ROUTE
         MobileTabs.RECORDINGS -> RecordingsRoutes.ROUTE
-        else -> SettingsRoutes.SETTINGS
+        MobileTabs.MORE -> MORE_ROUTE
+        else -> return
     }
     if (currentDestination?.route == destination) return
     navigate(destination) {
