@@ -124,6 +124,33 @@
 
 ---
 
+### Task 4b: Dokunmatik etkileşim temeli (plan dışı, ruling F15)
+
+Gerçek: tv-material'ın tıklanabilir yüzeyi (`tvClickable`) yalnız D-pad/ENTER
+işliyor, işaretçi (dokunma) olayı yok. Bu yüzden telefonda sekme çubuğu ve
+`NovaPill` düğmeleri dokunuşa ölü. Task 4'te `:mobile` içine geçici bir
+koordinat yakalayıcı (`touchTabBar`) kondu; kalıcı çözüm ortak ilkel.
+
+**Files:**
+- Create: `ui/src/main/java/dev/anon/novatv/ui/component/NovaTapSurface.kt`
+- Modify: `ui/src/main/java/dev/anon/novatv/ui/component/NovaComponents.kt` (`NovaPill` içi)
+- Modify: `ui/src/main/java/dev/anon/novatv/ui/layout/NovaScaffold.kt` (sekme yüzeyi)
+- Modify: `mobile/src/main/java/dev/anon/novatv/mobile/MobileNavHost.kt` (`touchTabBar` kaldır)
+
+**Interfaces:**
+- Produces: `@Composable fun NovaTapSurface(onClick, modifier, shape, containerColor, contentColor, border, enabled, scaleOnPress, interactionSource, content)` — hem işaretçi `clickable` hem D-pad `focusable`/ENTER; odak dolgusu ve ölçek `interactionSource`'tan.
+- Tüketir: `NovaColors.Focus/FocusInk`.
+
+- [ ] **Step 1:** `NovaTapSurface` yaz: `Modifier.clickable(interactionSource, indication = null, enabled, onClick)` + odak ölçeği/dolgusu; ripple yok (kimlik dili).
+- [ ] **Step 2:** `NovaPill` gövdesini `NovaTapSurface`'a geçir; genel API ve görünüm aynı kalır.
+- [ ] **Step 3:** `NovaScaffold` sekme yüzeyini `NovaTapSurface`'a geçir; `:mobile`'daki `touchTabBar` ve kopya 64 dp sabitini **sil**.
+- [ ] **Step 4:** `./gradlew :ui:testDebugUnitTest :app:assembleDebug :mobile:assembleDebug` → yeşil.
+- [ ] **Step 5:** TV regresyonu (`tv36`): odak halkası/dolgusu aynı, D-pad ENTER çalışıyor, ripple yok, kanal listesi ve ayarlar açılıyor.
+- [ ] **Step 6:** Telefon (`nova-tel`): dokunuşla sekme değişimi, Ayarlar satırı/pill düğmesi, oynatıcı OSD düğmesi.
+- [ ] **Step 7:** Commit: `feat(ui): dokunma ve D-pad'i birlikte işleyen ortak yüzey`
+
+---
+
 ### Task 5: Canlı ekranı compact düzeni
 
 **Files:**
