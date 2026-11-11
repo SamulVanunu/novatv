@@ -180,6 +180,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 },
                 onToggleReminder = viewModel::toggleReminder,
                 onToggleRecording = viewModel::toggleRecording,
+                window = NovaWindow.Expanded,
             )
         }
 
