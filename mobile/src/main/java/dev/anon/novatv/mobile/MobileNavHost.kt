@@ -236,7 +236,7 @@ fun MobileNavHost(graph: NovaGraph) {
                     channelResolver = channelResolver,
                     parentalGuard = parentalGuard,
                     startRoute = startRoute,
-                    needsSourceOnboarding = needsSourceOnboarding(sourceCount == 0),
+                    needsSourceOnboarding = needsSourceOnboarding(sourceCount),
                     // Sekme kökü: boşluk yalnız kabuktan gelir.
                     contentModifier = Modifier.fillMaxSize().padding(padding),
                 )
@@ -251,7 +251,7 @@ fun MobileNavHost(graph: NovaGraph) {
                 channelResolver = channelResolver,
                 parentalGuard = parentalGuard,
                 startRoute = startRoute,
-                needsSourceOnboarding = needsSourceOnboarding(sourceCount == 0),
+                needsSourceOnboarding = needsSourceOnboarding(sourceCount),
                 contentModifier = Modifier.fillMaxSize(),
             )
         }
@@ -1023,8 +1023,12 @@ internal fun startDestination(hasSources: Boolean, lastChannelRoute: String?): S
 /**
  * Boş açılış yönlendirmesi gerekiyor mu: hiç kaynak yokken Canlı ekranı
  * kanal yerine kaynak ekleme çağrısı gösterir.
+ *
+ * Girdi "kaynak var mı" değil, kaynak **sayısı**: boolean bir parametre
+ * çağrı yerinde `== 0` ile beslenip ters çevrilebiliyordu ve yüzey hiç
+ * görünmüyordu. Sayıyı almak o hatayı tip düzeyinde kapatır.
  */
-internal fun needsSourceOnboarding(hasSources: Boolean): Boolean = !hasSources
+internal fun needsSourceOnboarding(sourceCount: Int): Boolean = sourceCount == 0
 
 /**
  * Kullanılabilir kaynak sayısı: yalnız etkin listeler sayılır, çünkü kanallar

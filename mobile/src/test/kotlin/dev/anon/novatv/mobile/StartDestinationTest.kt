@@ -27,20 +27,20 @@ class StartDestinationTest {
     @Test
     fun kaynakYokkenCanliAciliyorVeYonlendirmeGerekli() {
         assertEquals(Routes.LIVE, startDestination(hasSources = false, lastChannelRoute = null))
-        assertTrue(needsSourceOnboarding(hasSources = false))
+        assertTrue(needsSourceOnboarding(sourceCount = 0))
     }
 
     @Test
     fun kaynakVeSonKanalVarsaSonKanalAciliyor() {
         val route = "player?channelId=7&catchupStart=-1&catchupMinutes=0"
         assertEquals(route, startDestination(hasSources = true, lastChannelRoute = route))
-        assertFalse(needsSourceOnboarding(hasSources = true))
+        assertFalse(needsSourceOnboarding(sourceCount = 1))
     }
 
     @Test
     fun kaynakVarSonKanalYoksaCanliAciliyor() {
         assertEquals(Routes.LIVE, startDestination(hasSources = true, lastChannelRoute = null))
-        assertFalse(needsSourceOnboarding(hasSources = true))
+        assertFalse(needsSourceOnboarding(sourceCount = 1))
     }
 
     @Test
@@ -49,7 +49,7 @@ class StartDestinationTest {
         // yokken oynatıcıya girmek boş ekrana götürür.
         val route = "player?channelId=7&catchupStart=-1&catchupMinutes=0"
         assertEquals(Routes.LIVE, startDestination(hasSources = false, lastChannelRoute = route))
-        assertTrue(needsSourceOnboarding(hasSources = false))
+        assertTrue(needsSourceOnboarding(sourceCount = 0))
     }
 
     @Test
@@ -57,7 +57,7 @@ class StartDestinationTest {
         val count = activeSourceCount(emptyList())
         assertEquals(0, count)
         // Kaynak yokken yönlendirme gerekir.
-        assertTrue(needsSourceOnboarding(count > 0))
+        assertTrue(needsSourceOnboarding(count))
     }
 
     @Test
@@ -76,7 +76,7 @@ class StartDestinationTest {
         val count = activeSourceCount(playlists)
         assertEquals(1, count)
         // Kaynak varken yönlendirme kalkar.
-        assertFalse(needsSourceOnboarding(count > 0))
+        assertFalse(needsSourceOnboarding(count))
     }
 
     @Test
