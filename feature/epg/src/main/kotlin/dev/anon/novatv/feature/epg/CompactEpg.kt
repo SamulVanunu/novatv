@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -96,6 +97,11 @@ internal fun CompactEpg(
 ) {
     var openChannelId by remember { mutableStateOf<Long?>(null) }
     val openRow = state.rows.firstOrNull { it.channel.id == openChannelId }
+    // Liste kaydırma konumu burada hatırlanır: detay açılınca liste dalı
+    // kompozisyondan düşer, Geri'de aynı durumla geri gelir — kullanıcı
+    // kaldığı satırda kalır. Dalın içinde `remember` edilseydi her dönüşte
+    // yeni durum doğar ve liste başa sarardı.
+    val listState = rememberLazyListState()
 
     // Rehber yenilenip kanal satırı düşerse açık kalan detay kapanır.
     LaunchedEffect(openChannelId, openRow) {
@@ -125,6 +131,7 @@ internal fun CompactEpg(
                 onRefresh = onRefresh,
                 onBack = onBack,
                 onOpenChannel = { openChannelId = it },
+                listState = listState,
             )
         }
     }
@@ -139,6 +146,7 @@ private fun CompactGuideList(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
     onOpenChannel: (Long) -> Unit,
+    listState: LazyListState,
 ) {
     Column(
         modifier = Modifier
@@ -214,7 +222,7 @@ private fun CompactGuideList(
             )
 
             else -> LazyColumn(
-                state = rememberLazyListState(),
+                state = listState,
                 modifier = Modifier.fillMaxSize().testTag("epg-list"),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 contentPadding = PaddingValues(bottom = 8.dp),
@@ -283,7 +291,7 @@ private fun CompactChannelRow(
             .heightIn(min = 56.dp)
             .testTag("epg-row-${row.channel.id}"),
         shape = RoundedCornerShape(12.dp),
-        containerColor = NovaColors.Surface.copy(alpha = 0.85f),
+        containerColor = NovaColors.Surface.copy(alpha = ROW_SURFACE_ALPHA),
         contentColor = NovaColors.Text,
         focusedContainerColor = NovaColors.Focus,
         focusedContentColor = NovaColors.FocusInk,
@@ -507,6 +515,18 @@ private fun CompactProgramPage(
                 onToggleRecording = { onToggleRecording(channel, selectedProgram) },
             )
         }
+
+        // Eylem şeridine kaydırdıktan sonra üstteki "Geri" ekran dışında kalır;
+        // TV diyalogunun `Kapat`'ı gibi yerinde bir çıkış bırakılır.
+        Spacer(Modifier.height(12.dp))
+        NovaPill(
+            label = "Kapat",
+            onClick = onBack,
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 48.dp),
+            testTag = "epg-dismiss",
+        )
     }
 }
 
@@ -524,7 +544,7 @@ private fun CompactCurrentBlock(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        containerColor = NovaColors.Surface.copy(alpha = 0.6f),
+        containerColor = NovaColors.Surface.copy(alpha = ROW_SURFACE_ALPHA),
         contentColor = NovaColors.Text,
         focusedContainerColor = NovaColors.Focus,
         focusedContentColor = NovaColors.FocusInk,
@@ -578,7 +598,7 @@ private fun CompactProgramRow(
         containerColor = if (selected) {
             NovaColors.SurfaceHigh
         } else {
-            NovaColors.Surface.copy(alpha = 0.6f)
+            NovaColors.Surface.copy(alpha = ROW_SURFACE_ALPHA)
         },
         contentColor = if (dimmed) NovaColors.TextMuted else NovaColors.Text,
         focusedContainerColor = NovaColors.Focus,
@@ -742,3 +762,9 @@ private fun progressShare(startAt: Long, endAt: Long, now: Long): Float {
 
 /** Detay sayfasında gösterilecek sıradaki program sayısı. */
 private const val DETAIL_UPCOMING = 4
+
+/**
+ * Kanala ait yüzeylerin (satır, şimdiki blok, program satırı) ortak dolgu
+ * saydamlığı: üst üste gelen bloklar tek bir yüzey ailesi gibi okunur.
+ */
+private const val ROW_SURFACE_ALPHA = 0.85f
