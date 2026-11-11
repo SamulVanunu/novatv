@@ -243,6 +243,7 @@ private fun MobileGraph(
                 onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
                 onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                 onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
+                window = rememberNovaWindow(),
                 modifier = contentModifier,
             )
         }

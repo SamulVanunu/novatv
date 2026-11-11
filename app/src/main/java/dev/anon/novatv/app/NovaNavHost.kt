@@ -66,6 +66,7 @@ import dev.anon.novatv.feature.settings.SearchViewModel
 import dev.anon.novatv.feature.settings.SettingsRoutes
 import dev.anon.novatv.feature.settings.SettingsScreen
 import dev.anon.novatv.feature.settings.SettingsViewModel
+import dev.anon.novatv.ui.layout.NovaWindow
 import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.flow.first
@@ -130,6 +131,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
                 onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                 onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
+                window = NovaWindow.Expanded,
             )
         }
 

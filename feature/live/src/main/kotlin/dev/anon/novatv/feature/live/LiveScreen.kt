@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -55,6 +56,7 @@ import dev.anon.novatv.ui.component.NovaPanel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 import dev.anon.novatv.ui.theme.novaTextFieldColors
@@ -82,6 +84,110 @@ fun LiveScreen(
     onOpenMultiwall: () -> Unit = {},
     onOpenSearch: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
+    window: NovaWindow = NovaWindow.Expanded,
+    modifier: Modifier = Modifier,
+) {
+    // Eylem yüzeyi TV ile ortak: kompakt taşma düğmesi de TV uzun basışı da
+    // aynı kanalı seçer, diyaloglar iki yolda da aynı.
+    var actionChannel by remember { mutableStateOf<Channel?>(null) }
+    var numberChannel by remember { mutableStateOf<Channel?>(null) }
+
+    when (window) {
+        NovaWindow.Compact, NovaWindow.Medium -> CompactLive(
+            state = state,
+            channels = channels,
+            window = window,
+            onSelectGroup = onSelectGroup,
+            onQueryChange = onQueryChange,
+            onToggleFavorites = onToggleFavorites,
+            onToggleGrid = onToggleGrid,
+            onChannelClick = onChannelClick,
+            onToggleFavorite = onToggleFavorite,
+            onChannelFocused = onChannelFocused,
+            onOpenPlaylists = onOpenPlaylists,
+            onOpenActions = { actionChannel = it },
+            modifier = modifier,
+        )
+
+        NovaWindow.Expanded -> TvLive(
+            state = state,
+            channels = channels,
+            onSelectGroup = onSelectGroup,
+            onQueryChange = onQueryChange,
+            onToggleFavorites = onToggleFavorites,
+            onToggleGrid = onToggleGrid,
+            onChannelClick = onChannelClick,
+            onToggleFavorite = onToggleFavorite,
+            onChannelFocused = onChannelFocused,
+            onOpenPlaylists = onOpenPlaylists,
+            onOpenGuide = onOpenGuide,
+            onOpenLibrary = onOpenLibrary,
+            onOpenRecordings = onOpenRecordings,
+            onOpenMultiwall = onOpenMultiwall,
+            onOpenSearch = onOpenSearch,
+            onOpenSettings = onOpenSettings,
+            onActionChannel = { actionChannel = it },
+            modifier = modifier,
+        )
+    }
+
+    actionChannel?.let { channel ->
+        ChannelActionsDialog(
+            channel = channel,
+            favorite = channel.id in state.favoriteIds,
+            onFavorite = {
+                onToggleFavorite(channel)
+                actionChannel = null
+            },
+            onHideChannel = {
+                onHideChannel(channel)
+                actionChannel = null
+            },
+            onHideGroup = {
+                onHideGroup(channel.groupName)
+                actionChannel = null
+            },
+            onSetNumber = {
+                actionChannel = null
+                numberChannel = channel
+            },
+            onDismiss = { actionChannel = null },
+        )
+    }
+
+    numberChannel?.let { channel ->
+        ChannelNumberDialog(
+            channel = channel,
+            onConfirm = { number ->
+                onSetNumber(channel, number)
+                numberChannel = null
+            },
+            onDismiss = { numberChannel = null },
+        )
+    }
+}
+
+/** TV gövdesi: grup rayı solda, başlık ve kanal listesi/ızgara sağda. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvLive(
+    state: LiveUiState,
+    channels: LazyPagingItems<Channel>,
+    onSelectGroup: (String?) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onToggleFavorites: () -> Unit,
+    onToggleGrid: () -> Unit,
+    onChannelClick: (Channel) -> Unit,
+    onToggleFavorite: (Channel) -> Unit,
+    onChannelFocused: (Channel?) -> Unit,
+    onOpenPlaylists: () -> Unit,
+    onOpenGuide: () -> Unit,
+    onOpenLibrary: () -> Unit,
+    onOpenRecordings: () -> Unit,
+    onOpenMultiwall: () -> Unit,
+    onOpenSearch: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onActionChannel: (Channel) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val railFocus = remember { FocusRequester() }
@@ -89,8 +195,6 @@ fun LiveScreen(
     val listState = rememberLazyListState()
     val gridState = rememberLazyGridState()
     var pendingFirstFocus by remember { mutableStateOf(true) }
-    var actionChannel by remember { mutableStateOf<Channel?>(null) }
-    var numberChannel by remember { mutableStateOf<Channel?>(null) }
     var menuOpen by remember { mutableStateOf(false) }
 
     LaunchedEffect(state.selectedGroup) {
@@ -202,7 +306,7 @@ fun LiveScreen(
                     )
 
                     state.grid -> LazyVerticalGrid(
-                        columns = GridCells.Fixed(GRID_COLUMNS),
+                        columns = GridCells.Fixed(TV_GRID_COLUMNS),
                         state = gridState,
                         modifier = Modifier.fillMaxSize().testTag("channel-grid"),
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -218,7 +322,7 @@ fun LiveScreen(
                                 favorite = channel.id in state.favoriteIds,
                                 index = index,
                                 onClick = { onChannelClick(channel) },
-                                onLongClick = { actionChannel = channel },
+                                onLongClick = { onActionChannel(channel) },
                                 onFocused = { onRowFocused(channel) },
                                 autoFocus = pendingFirstFocus && index == 0 &&
                                     (currentGroup == null || currentGroup == RECENT_GROUP_KEY ||
@@ -242,7 +346,7 @@ fun LiveScreen(
                                 favorite = channel.id in state.favoriteIds,
                                 index = index,
                                 onClick = { onChannelClick(channel) },
-                                onLongClick = { actionChannel = channel },
+                                onLongClick = { onActionChannel(channel) },
                                 onFocused = { onRowFocused(channel) },
                                 autoFocus = pendingFirstFocus && index == 0 &&
                                     (currentGroup == null || currentGroup == RECENT_GROUP_KEY ||
@@ -295,41 +399,6 @@ fun LiveScreen(
                 onOpenSettings()
             },
             onDismiss = { menuOpen = false },
-        )
-    }
-
-    actionChannel?.let { channel ->
-        ChannelActionsDialog(
-            channel = channel,
-            favorite = channel.id in state.favoriteIds,
-            onFavorite = {
-                onToggleFavorite(channel)
-                actionChannel = null
-            },
-            onHideChannel = {
-                onHideChannel(channel)
-                actionChannel = null
-            },
-            onHideGroup = {
-                onHideGroup(channel.groupName)
-                actionChannel = null
-            },
-            onSetNumber = {
-                actionChannel = null
-                numberChannel = channel
-            },
-            onDismiss = { actionChannel = null },
-        )
-    }
-
-    numberChannel?.let { channel ->
-        ChannelNumberDialog(
-            channel = channel,
-            onConfirm = { number ->
-                onSetNumber(channel, number)
-                numberChannel = null
-            },
-            onDismiss = { numberChannel = null },
         )
     }
 }
@@ -417,13 +486,20 @@ private fun LiveHeader(
     }
 }
 
+/**
+ * Boş durum metni; TV ve kompakt aynı metni gösterir.
+ *
+ * [focusRequester] yalnız TV'de dolu: kompakt yol odak istemez, bu yüzden
+ * `null` geçer. Geniş yazı sütunu verilen genişliği aşmaz.
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun EmptyState(
+internal fun EmptyState(
     noSource: Boolean,
     favoritesOnly: Boolean,
-    focusRequester: FocusRequester,
+    focusRequester: FocusRequester? = null,
     onOpenPlaylists: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val title = when {
         noSource -> "Henüz kanal yok"
@@ -436,7 +512,7 @@ private fun EmptyState(
         else -> "Başka bir grup seçin veya kaynaklarınızı yenileyin."
     }
     Column(
-        modifier = Modifier.fillMaxSize().padding(bottom = 40.dp),
+        modifier = modifier.fillMaxSize().padding(bottom = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -451,14 +527,20 @@ private fun EmptyState(
             text = body,
             style = NovaType.BodyMuted,
             textAlign = TextAlign.Center,
-            modifier = Modifier.width(520.dp),
+            modifier = Modifier
+                .widthIn(max = 520.dp)
+                .padding(horizontal = 24.dp),
         )
         Spacer(Modifier.height(24.dp))
         NovaPill(
             label = if (noSource) "Kaynak ekle" else "Kaynaklar",
             onClick = onOpenPlaylists,
             accent = true,
-            modifier = Modifier.focusRequester(focusRequester),
+            modifier = if (focusRequester != null) {
+                Modifier.focusRequester(focusRequester)
+            } else {
+                Modifier
+            },
             testTag = "empty-open-playlists",
         )
     }
@@ -634,5 +716,3 @@ private fun LiveMenuDialog(
         }
     }
 }
-
-private const val GRID_COLUMNS = 3
