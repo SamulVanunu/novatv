@@ -91,4 +91,4 @@ veya parola yoktur; testlerde yalnız Demo/Mock değerler kullanılır.
 
 ## Lisans
 
-Lisans dosyası yok; tüm haklar saklıdır.
+MIT — bkz. `LICENSE`.
