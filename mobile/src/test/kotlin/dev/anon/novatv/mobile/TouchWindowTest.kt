@@ -22,4 +22,17 @@ class TouchWindowTest {
         assertEquals(NovaWindow.Compact, touchWindow(NovaWindow.Compact))
         assertEquals(NovaWindow.Medium, touchWindow(NovaWindow.Medium))
     }
+
+    /**
+     * Gerçek genişlikler tek kapıdan (`mobileWindow`) geçer. Telefon dikey
+     * 411 dp, yatay 891 dp; tablet 1066 dp — hiçbiri televizyon düzenine
+     * (`Expanded`) çıkmamalı.
+     */
+    @Test
+    fun gercekGenisliklerTelevizyonDuzenineCikmaz() {
+        assertEquals(NovaWindow.Compact, mobileWindow(411))
+        assertEquals(NovaWindow.Medium, mobileWindow(600))
+        assertEquals(NovaWindow.Medium, mobileWindow(891))
+        assertEquals(NovaWindow.Medium, mobileWindow(1066))
+    }
 }

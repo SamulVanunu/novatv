@@ -72,7 +72,7 @@ fun MobileMoreScreen(
                 )
                 MoreRow(
                     label = "Çoklu ekran",
-                    subtitle = "Dört kanalı aynı anda izle",
+                    subtitle = "İki kanalı aynı anda izle",
                     onClick = onMultiwall,
                     testTag = "more-multiwall",
                 )

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -30,6 +31,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.style.TextOverflow
@@ -100,10 +102,11 @@ import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPanel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaTapSurface
+import dev.anon.novatv.ui.layout.LocalNovaWindow
 import dev.anon.novatv.ui.layout.NovaScaffold
-import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.layout.NovaTab
-import dev.anon.novatv.ui.layout.rememberNovaWindow
+import dev.anon.novatv.ui.layout.NovaWindow
+import dev.anon.novatv.ui.layout.windowClass
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 import java.io.File
@@ -156,7 +159,7 @@ fun MobileNavHost(graph: NovaGraph) {
     val appearance by graph.preferences.appearance.collectAsStateWithLifecycle(
         initialValue = Appearance(),
     )
-    val window = touchWindow(rememberNovaWindow())
+    val window = mobileWindow(LocalConfiguration.current.screenWidthDp)
     val parentalGuard = rememberParentalGuard(graph.profiles)
     val channelResolver = remember(graph) { GraphChannelResolver(graph) }
 
@@ -213,6 +216,11 @@ fun MobileNavHost(graph: NovaGraph) {
         } else if (selectedTab != MobileTabs.LIVE) {
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
+                    // Ayarlar "Daha" sekmesinin üstünde durur: Geri önce menüye
+                    // döner. Sekme kökündeyken Geri Canlı'ya iner. Tek adımda
+                    // Canlı'ya inmek menüyü atlıyordu.
+                    val route = navController.currentDestination?.route
+                    if (route !in TabRoots && navController.popBackStack()) return
                     navController.backToTabRoot(MobileTabs.LIVE)
                 }
             }
@@ -223,16 +231,37 @@ fun MobileNavHost(graph: NovaGraph) {
         onDispose { callback?.remove() }
     }
 
-    if (selectedTab != null) {
-        // Alt çubuğun kendi payı `NovaScaffold`'tan gelir; navigasyon çubuğu
-        // inset'i yalnız kabuğa eklenir, içeriğe ikinci kez eklenmez.
-        Box(modifier = chromeModifier) {
-            NovaScaffold(
-                window = window,
-                tabs = Tabs,
-                selected = selectedTab,
-                onSelect = navController::openTab,
-            ) { padding ->
+    // Kabuk sınıfı bir kez sabitlenir ve ağacın tamamına verilir: alt
+    // ekranlar `rememberNovaWindow()` çağırsa da `rememberNovaSpacing()`
+    // kullansa da `Expanded`'a çıkmaz. Tek tek çağrı yerlerine bırakıldığında
+    // beş ekran ham sınıfı okuyup televizyon gövdesini çiziyordu.
+    CompositionLocalProvider(LocalNovaWindow provides window) {
+        if (selectedTab != null) {
+            // Alt çubuğun kendi payı `NovaScaffold`'tan gelir; navigasyon çubuğu
+            // inset'i yalnız kabuğa eklenir, içeriğe ikinci kez eklenmez.
+            Box(modifier = chromeModifier) {
+                NovaScaffold(
+                    window = window,
+                    tabs = Tabs,
+                    selected = selectedTab,
+                    onSelect = navController::openTab,
+                ) { padding ->
+                    MobileGraph(
+                        graph = graph,
+                        navController = navController,
+                        appearance = appearance,
+                        channelResolver = channelResolver,
+                        parentalGuard = parentalGuard,
+                        startRoute = startRoute,
+                        needsSourceOnboarding = needsSourceOnboarding(sourceCount),
+                        // Sekme kökü: boşluk yalnız kabuktan gelir.
+                        contentModifier = Modifier.fillMaxSize().padding(padding),
+                        window = window,
+                    )
+                }
+            }
+        } else {
+            Box(modifier = chromeModifier) {
                 MobileGraph(
                     graph = graph,
                     navController = navController,
@@ -241,29 +270,14 @@ fun MobileNavHost(graph: NovaGraph) {
                     parentalGuard = parentalGuard,
                     startRoute = startRoute,
                     needsSourceOnboarding = needsSourceOnboarding(sourceCount),
-                    // Sekme kökü: boşluk yalnız kabuktan gelir.
-                    contentModifier = Modifier.fillMaxSize().padding(padding),
+                    contentModifier = Modifier.fillMaxSize(),
                     window = window,
                 )
             }
         }
-    } else {
-        Box(modifier = chromeModifier) {
-            MobileGraph(
-                graph = graph,
-                navController = navController,
-                appearance = appearance,
-                channelResolver = channelResolver,
-                parentalGuard = parentalGuard,
-                startRoute = startRoute,
-                needsSourceOnboarding = needsSourceOnboarding(sourceCount),
-                contentModifier = Modifier.fillMaxSize(),
-                window = window,
-            )
-        }
-    }
 
-    ParentalGuardDialog(parentalGuard)
+        ParentalGuardDialog(parentalGuard, touch = true)
+    }
 }
 
 @Composable
@@ -314,7 +328,7 @@ private fun MobileGraph(
                     // Telefonda iki kutu çizilir; dörtlü düzen tablet/televizyonda
                     // anlamlı. Açılışta kullanıcıyı çizilemeyen bir düzenle
                     // karşılamamak için sınıfa göre seçilir.
-                    onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(panesFor(window))) },
+                    onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(MOBILE_PANES)) },
                     onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                     onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
                     window = window,
@@ -353,7 +367,7 @@ private fun MobileGraph(
             }
             MobileMoreScreen(
                 onSearch = { navController.navigate(SettingsRoutes.SEARCH) },
-                onMultiwall = { navController.navigate(MultiWallRoutes.of(panesFor(window))) },
+                onMultiwall = { navController.navigate(MultiWallRoutes.of(MOBILE_PANES)) },
                 onSources = { navController.navigate(PlaylistsRoutes.LIST) },
                 onSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
                 onBackup = {
@@ -608,7 +622,7 @@ private fun MobileGraph(
                 onMoveDown = { playlist -> viewModel.move(playlist, 1) },
                 onDelete = viewModel::delete,
                 onBackToLive = { navController.popBackStack(Routes.LIVE, false) },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -646,7 +660,7 @@ private fun MobileGraph(
                     graph.syncEngine.requestSync(id)
                     navController.popBackStack()
                 },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -841,7 +855,7 @@ private fun MobileGraph(
                 onSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                 onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -860,7 +874,7 @@ private fun MobileGraph(
                 onRemovePin = viewModel::removePin,
                 onDelete = viewModel::delete,
                 onBack = { navController.popBackStack() },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -884,7 +898,7 @@ private fun MobileGraph(
                     }
                 },
                 onBack = { navController.popBackStack() },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
     }
@@ -1066,6 +1080,15 @@ private suspend fun resolveStartInputs(graph: NovaGraph): StartInputs = runCatch
     StartInputs(hasSources = hasSources, lastChannelRoute = route)
 }.getOrElse { StartInputs(hasSources = false, lastChannelRoute = null) }
 
+/** Sekme kökleri; Geri bunlardan Canlı'ya iner. */
+private val TabRoots = setOf(
+    Routes.LIVE,
+    EpgRoutes.PATTERN,
+    LibraryRoutes.ROUTE,
+    RecordingsRoutes.ROUTE,
+    MORE_ROUTE,
+)
+
 /** Rota → sekme eşlemesi; alt ekranlar (oynatıcı, detay, form) `null`. */
 private fun tabForRoute(route: String?): String? = when (route) {
     Routes.LIVE -> MobileTabs.LIVE
@@ -1085,17 +1108,23 @@ private fun tabForRoute(route: String?): String? = when (route) {
  * kumandayla çalışır — parmak dokunuşunu yutar. Telefon yatayda 891 dp'ye
  * çıkıyor ve `Expanded` sınıfına düşüyordu; kütüphane posteri, canlı kanal
  * satırı ve EPG satırı dokunmayla açılmıyordu. Expanded yalnız televizyon
- * uygulamasının düzenidir; mobil uygulama genişliği 720 dp'de sınırlayıp
- * ortalar.
+ * uygulamasının düzenidir. Kabuk, sınıfı ağacın tamamına `LocalNovaWindow`
+ * ile verir; kompakt gövdeler içeriği kendi `CompactContentMaxWidth`
+ * sınırlarında tutar.
  */
 internal fun touchWindow(window: NovaWindow): NovaWindow =
     if (window == NovaWindow.Expanded) NovaWindow.Medium else window
 
+/** Kabuğun kullandığı sınıf: genişlikten okuyup sınırlar. Tek kapı, tek kural. */
+internal fun mobileWindow(widthDp: Int): NovaWindow = touchWindow(windowClass(widthDp))
+
 /**
- * Çoklu ekranda çizilecek kutu sayısı: dokunmatik uygulamada iki.
+ * Çoklu ekranda çizilecek kutu sayısı: dokunmatik uygulamada her zaman iki.
+ *
+ * Kabuk `Expanded`'a çıkmadığı için dört kutu dalı hiç çalışmıyordu; sayı tek
+ * yerde sabitlenir ki menüdeki metin ("iki kanal") yalan söylemesin.
  */
-private fun panesFor(window: NovaWindow): Int =
-    if (window == NovaWindow.Expanded) 4 else 2
+private const val MOBILE_PANES = 2
 
 /**
  * Sekme dokunuşu: standart alt gezinti deseni. Yığın her zaman

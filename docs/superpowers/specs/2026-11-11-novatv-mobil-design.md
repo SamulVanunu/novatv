@@ -26,7 +26,7 @@ yerde kalır.
 | Dokunma hedefi | hiçbir denetim < 48 dp değil |
 | Oynatıcıda kanal değiştirme | dokunuşla ≤ 2 dokunuş, D-pad/CH tuşlarıyla da çalışır |
 | TV uygulaması | görsel ve davranışsal olarak değişmez (regresyon turu) |
-| Tablet (≥ 840 dp) | TV'ye yakın iki bölmeli düzen |
+| Tablet (≥ 840 dp) | orta sınıf düzen: 3 sütun, tek bölme (pencere sınırı §4) |
 | APK | iki ayrı imzalı APK, aynı cihazda yan yana kurulabilir |
 
 ## 2. Kapsam
@@ -109,7 +109,7 @@ profiller taşınmaz. Geçiş yolu mevcut yedek/geri yükleme:
 
 ## 5. Ekranlar
 
-| Ekran | Compact / Medium (telefon, küçük tablet) | Expanded (tablet, TV) |
+| Ekran | Compact / Medium (telefon, tablet) | Expanded (yalnız TV uygulaması) |
 |---|---|---|
 | Canlı | yatay grup çipleri, tam genişlik satırlar, yıldız dokunmada | bugünkü grup rayı + satırlar |
 | Rehber | kanal başına "şimdi / sıradaki" listesi, programa dokun → detay sayfası | bugünkü ızgara |
@@ -178,7 +178,8 @@ Telefonda EPG ızgarası yerine "şimdi/sıradaki" listesi bilinçli tek sapma:
 
 - TV APK'sı önceki turla aynı görünür davranışı verir; `tv36` turu temiz.
 - Telefonda 411 dp'de tüm ekranlar kaydırmasız kullanılır, hiçbir hedef <48 dp değil.
-- Tablette ≥840 dp'de iki bölmeli düzen açılır.
+- Tablette ≥840 dp'de orta sınıf düzen (3 sütun, tam sayfa detay) açılır; TV
+  düzeni mobilde hiç açılmaz (§4, `touchWindow`).
 - Oynatıcıda dokunarak kanal değiştirme, kanal listesi ve D-pad/CH tuşları çalışır.
 - Yedek al/geri yükle mobilde çalışır; ayrı veri davranışı ilk açılışta anlatılır.
 - İki APK imzalı, aynı cihazda yan yana kurulabilir, hash'leri raporlanır.
