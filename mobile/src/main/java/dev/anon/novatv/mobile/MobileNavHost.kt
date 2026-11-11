@@ -156,7 +156,7 @@ fun MobileNavHost(graph: NovaGraph) {
     val appearance by graph.preferences.appearance.collectAsStateWithLifecycle(
         initialValue = Appearance(),
     )
-    val window = rememberNovaWindow()
+    val window = touchWindow(rememberNovaWindow())
     val parentalGuard = rememberParentalGuard(graph.profiles)
     val channelResolver = remember(graph) { GraphChannelResolver(graph) }
 
@@ -1079,7 +1079,20 @@ private fun tabForRoute(route: String?): String? = when (route) {
 }
 
 /**
- * Çoklu ekranda çizilecek kutu sayısı: telefonda iki, tablet/televizyonda dört.
+ * Mobil kabuğun pencere sınıfı: en fazla `Medium`.
+ *
+ * TV gövdeleri tv-material'ın `ClickableSurface`'ını kullanır ve yalnız
+ * kumandayla çalışır — parmak dokunuşunu yutar. Telefon yatayda 891 dp'ye
+ * çıkıyor ve `Expanded` sınıfına düşüyordu; kütüphane posteri, canlı kanal
+ * satırı ve EPG satırı dokunmayla açılmıyordu. Expanded yalnız televizyon
+ * uygulamasının düzenidir; mobil uygulama genişliği 720 dp'de sınırlayıp
+ * ortalar.
+ */
+internal fun touchWindow(window: NovaWindow): NovaWindow =
+    if (window == NovaWindow.Expanded) NovaWindow.Medium else window
+
+/**
+ * Çoklu ekranda çizilecek kutu sayısı: dokunmatik uygulamada iki.
  */
 private fun panesFor(window: NovaWindow): Int =
     if (window == NovaWindow.Expanded) 4 else 2
