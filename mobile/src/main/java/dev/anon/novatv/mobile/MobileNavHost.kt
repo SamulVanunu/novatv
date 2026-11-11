@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -203,7 +204,9 @@ fun MobileNavHost(graph: NovaGraph) {
         val callback: OnBackPressedCallback? = if (selectedTab == null) {
             object : OnBackPressedCallback(true) {
                 override fun handleOnBackPressed() {
-                    navController.popBackStack()
+                    // Oynatıcı açılış hedefiyse yığında altında giriş yoktur;
+                    // Geri'yi Canlı'ya bağlar.
+                    navController.backToLiveOrPop()
                 }
             }
         } else if (selectedTab != MobileTabs.LIVE) {
@@ -670,8 +673,8 @@ private fun MobileGraph(
                 viewModel = viewModel,
                 sleepMinutes = appearance.sleepMinutes,
                 autoFrameRate = appearance.autoFrameRate,
-                // Oynatıcıyı açan sekmeye dön; ekran geri çağrısı zaten oradaki sekme köküne iner.
-                onBack = { navController.popBackStack() },
+                // Oynatıcıyı açan sekmeye dön; oynatıcı açılış hedefiyse Canlı'ya geç.
+                onBack = { navController.backToLiveOrPop() },
                 touch = true,
             )
         }
@@ -1080,6 +1083,20 @@ private fun NavHostController.openTab(key: String) {
         popUpTo(Routes.LIVE) { saveState = true }
         launchSingleTop = true
         restoreState = true
+    }
+}
+
+/**
+ * Oynatıcıdan çıkış: normalde yığından bir adım iner. Oynatıcı açılış hedefi
+ * olduğunda (son izlenen kanal) yığında altında hiçbir giriş yoktur ve
+ * `popBackStack()` sessizce `false` döner — "‹ Kanal" ile sistem Geri hiçbir
+ * şey yapmıyordu. O durumda Canlı köküne geçilir; yığın yeniden kurulur.
+ */
+private fun NavHostController.backToLiveOrPop() {
+    if (popBackStack()) return
+    navigate(Routes.LIVE) {
+        popUpTo(graph.findStartDestination().id) { inclusive = true }
+        launchSingleTop = true
     }
 }
 
