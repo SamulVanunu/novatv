@@ -268,7 +268,7 @@ private fun EpgSlot(label: String, value: String) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun TrackMenuDialog(
+internal fun TrackMenuDialog(
     title: String,
     choices: List<TrackChoice>,
     onSelect: (String?) -> Unit,

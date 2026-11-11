@@ -17,7 +17,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +34,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.tv.material3.Text
 import dev.anon.novatv.core.model.Channel
@@ -59,8 +59,9 @@ private val TouchTargetHeight = 48.dp
  * Tam ekran dokunmatik oynatıcı.
  *
  * Görüntü tam ekran çizilir ([buildPlayerView], `useController = false`); tüm
- * denetim alt panelde dokunma ile. D-pad yolu TV ekranında ([PlayerScreen]) kalır,
- * burada yalnız odak isteği ve geri tuşu OSD'ye bağlanır.
+ * denetim alt panelde dokunma ile. D-pad yolu TV ekranında ([PlayerScreen]) kalır;
+ * burada tuş işleyicisi ve bu ekrana ait `BackHandler` yok — sistem Geri tuşu
+ * rotayı kapatır (oynatıcıdan çıkar), OSD'yi yalnız perdeye dokunma kapatır.
  *
  * Katman sırası: video → OSD'nin altındaki tam ekran dokunma perdesi → hata /
  * bildirim / kanal bandı → OSD ve kanal listesi. Perde OSD'nin altında durduğu
@@ -82,6 +83,8 @@ fun TouchPlayerScreen(
     onSeekForward: () -> Unit,
     onCycleAspect: () -> Unit,
     onCycleBuffer: () -> Unit,
+    onSelectAudio: (String) -> Unit,
+    onSelectSubtitle: (String?) -> Unit,
     onChannelStep: (Int) -> Unit = {},
     onMenuOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -91,6 +94,8 @@ fun TouchPlayerScreen(
     val channelFocus = remember { FocusRequester() }
     val retryFocus = remember { FocusRequester() }
     var pickerOpen by remember { mutableStateOf(false) }
+    // Parça penceresi: hangisi açık; hiçbiri açık değilken NONE.
+    var trackMenu by remember { mutableStateOf(TrackMenu.NONE) }
 
     // Oynatma durumu (canlı rozet, oynat/duraklat etiketi) aynı kaynaktan.
     val playing = state.playback is PlaybackState.Playing ||
@@ -112,11 +117,16 @@ fun TouchPlayerScreen(
     }
 
     // Menü açıkken OSD'nin zamanlayıcısı durur; TV ekranıyla aynı sözleşme.
-    LaunchedEffect(pickerOpen) { onMenuOpenChange(pickerOpen) }
+    // Parça penceresi açıkken OSD görünür kalır, kanal listesinde gizlenir.
+    val menuOpen = pickerOpen || trackMenu != TrackMenu.NONE
+    LaunchedEffect(menuOpen) { onMenuOpenChange(menuOpen) }
     DisposableEffect(Unit) { onDispose { onMenuOpenChange(false) } }
 
     LaunchedEffect(pickerOpen) {
-        if (pickerOpen) onHideOsd()
+        if (pickerOpen) {
+            trackMenu = TrackMenu.NONE
+            onHideOsd()
+        }
     }
 
     Box(
@@ -187,14 +197,41 @@ fun TouchPlayerScreen(
                 onSeekForward = onSeekForward,
                 onCycleAspect = onCycleAspect,
                 onCycleBuffer = onCycleBuffer,
+                onOpenAudio = { trackMenu = TrackMenu.AUDIO },
+                onOpenSubtitle = { trackMenu = TrackMenu.SUBTITLE },
                 onOpenPicker = { pickerOpen = true },
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
         }
 
+        when (trackMenu) {
+            TrackMenu.AUDIO -> TrackMenuDialog(
+                title = "Ses",
+                choices = state.audioTracks,
+                onSelect = { id ->
+                    id?.let(onSelectAudio)
+                    trackMenu = TrackMenu.NONE
+                },
+                onDismiss = { trackMenu = TrackMenu.NONE },
+            )
+
+            TrackMenu.SUBTITLE -> TrackMenuDialog(
+                title = "Altyazı",
+                choices = state.subtitleTracks,
+                allowOff = true,
+                onSelect = {
+                    onSelectSubtitle(it)
+                    trackMenu = TrackMenu.NONE
+                },
+                onDismiss = { trackMenu = TrackMenu.NONE },
+            )
+
+            TrackMenu.NONE -> Unit
+        }
+
         if (pickerOpen) {
             ChannelPickerSheet(
-                order = channelOrder.collectAsState().value,
+                order = channelOrder.collectAsStateWithLifecycle().value,
                 current = state.channel,
                 onSelect = { channel ->
                     pickerOpen = false
@@ -206,6 +243,9 @@ fun TouchPlayerScreen(
         }
     }
 }
+
+/** Açık parça penceresi; hiçbiri açık değilken `NONE`. */
+private enum class TrackMenu { NONE, AUDIO, SUBTITLE }
 
 /**
  * Alt panel OSD: birinci satır çıkış / oynat-duraklat / kanal geçişi, ikinci
@@ -226,6 +266,8 @@ private fun TouchOsd(
     onSeekForward: () -> Unit,
     onCycleAspect: () -> Unit,
     onCycleBuffer: () -> Unit,
+    onOpenAudio: () -> Unit,
+    onOpenSubtitle: () -> Unit,
     onOpenPicker: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -300,16 +342,17 @@ private fun TouchOsd(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Ses ve altyazı birer etiket: TV'nin parça seçim penceresi bu
-            // görevde dokunmatik ekrana taşınmadı; çalışmayan bir kısayol
-            // göstermek yerine mevcut seçim okunur.
-            TouchInfo(
+            // TV'deki parça penceresi (TrackMenuDialog) aynen açılır; etiket
+            // geçerli parçayı gösterir.
+            TouchButton(
                 label = audioLabel(state.audioTracks),
+                onClick = onOpenAudio,
                 modifier = Modifier.weight(1f),
                 testTag = "osd-audio",
             )
-            TouchInfo(
+            TouchButton(
                 label = subtitleLabel(state.subtitleTracks),
+                onClick = onOpenSubtitle,
                 modifier = Modifier.weight(1f),
                 testTag = "osd-subtitle",
             )
@@ -445,30 +488,6 @@ private fun TouchButton(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-        )
-    }
-}
-
-/** Bilgi etiketi: dokunulmaz, düğme değildir; 48 dp hedef hizasında durur. */
-@OptIn(ExperimentalTvMaterial3Api::class)
-@Composable
-private fun TouchInfo(
-    label: String,
-    modifier: Modifier = Modifier,
-    testTag: String? = null,
-) {
-    Box(
-        modifier = modifier
-            .heightIn(min = TouchTargetHeight)
-            .then(if (testTag != null) Modifier.testTag(testTag) else Modifier)
-            .padding(horizontal = 10.dp),
-        contentAlignment = Alignment.CenterStart,
-    ) {
-        Text(
-            text = label,
-            style = NovaType.Small.copy(color = NovaColors.TextMuted),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }

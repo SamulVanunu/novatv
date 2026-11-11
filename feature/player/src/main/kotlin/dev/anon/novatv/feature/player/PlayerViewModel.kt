@@ -24,10 +24,8 @@ import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 
 /** Kanalın yayın adresini üretir; Xtream kimliği Room'a yazılmadığı için her açılışta çözülür. */
@@ -96,8 +94,9 @@ class PlayerViewModel(
      * gizli kanal/grup yok, numara/ad sırası). [stepChannel] ve [selectChannel]
      * tek bu sıradan seçim yapar; dokunmatik kanal listesi de bu akışı okur.
      *
-     * Açılışta bir kez yüklenir. İlk yükleme başarısızsa boş kalır, fırlatmaz;
-     * listeden seçim yapılırken bir kez daha denenir.
+     * Açılışta bir kez yüklenir ([init]); yeniden yüklenmez ve seçim yolu aradan
+     * disk okuma yapmaz. Yükleme başarısızsa ya da oynatma listesi boşsa liste boş
+     * kalır, fırlatmaz; o durumda CH+/CH− ve listeden seçim hiçbir şey yapmaz.
      */
     val channelOrder: StateFlow<List<Channel>> = order.asStateFlow()
 
@@ -210,11 +209,9 @@ class PlayerViewModel(
     fun stepChannel(delta: Int) {
         if (vod != null) return
         val current = channel.value ?: return
-        viewModelScope.launch {
-            val order = currentOrder() ?: return@launch
-            val target = channelStep(order, current.id, delta) ?: return@launch
-            stageChannel(target)
-        }
+        // Sıra açılışta bir kez yüklendi; tuş basışı burada disk okuması yapmaz.
+        val target = channelStep(channelOrder.value, current.id, delta) ?: return
+        viewModelScope.launch { stageChannel(target) }
     }
 
     /**
@@ -227,11 +224,8 @@ class PlayerViewModel(
     fun selectChannel(selected: Channel) {
         if (vod != null) return
         val currentId = channel.value?.id
-        viewModelScope.launch {
-            val order = currentOrder() ?: return@launch
-            val target = channelSwitchTarget(order, currentId, selected.id) ?: return@launch
-            stageChannel(target)
-        }
+        val target = channelSwitchTarget(channelOrder.value, currentId, selected.id) ?: return
+        viewModelScope.launch { stageChannel(target) }
     }
 
     fun retry() {
@@ -271,9 +265,9 @@ class PlayerViewModel(
         }
     }
 
+    /** [ms] kadar geri sarar; alt sınır denetleyicidedir. */
     fun seekBack(ms: Long = SEEK_BACK_STEP_MS) {
-        playbackController.seekBack(ms)
-        showOsd()
+        seekBy(-ms)
     }
 
     fun seekBackMinute() = seekBack(SEEK_BACK_MINUTE_MS)
@@ -284,10 +278,24 @@ class PlayerViewModel(
      */
     fun seekForward(ms: Long = SEEK_FORWARD_STEP_MS) {
         if (vod == null) return
+        seekBy(ms)
+    }
+
+    /**
+     * Sarmanın tek yolu: konumu [ms] (eksi geri, artı ileri) kaydırır ve
+     * başarısından bağımsız OSD'yi görünür tutar. Geri sarmada alt sınır ve
+     * canlıda sarma yokluğu denetleyicide (`seekBack`); ileri sarmada hedef
+     * süreye kırpılır. Canlıda ileri sarma çağrılmaz ([seekForward]).
+     */
+    private fun seekBy(ms: Long) {
         runCatching {
-            val duration = playbackController.durationMs
-            val target = playbackController.positionMs + ms
-            playbackController.seekTo(if (duration > 0) target.coerceAtMost(duration) else target)
+            if (ms >= 0) {
+                val duration = playbackController.durationMs
+                val target = playbackController.positionMs + ms
+                playbackController.seekTo(if (duration > 0) target.coerceAtMost(duration) else target)
+            } else {
+                playbackController.seekBack(-ms)
+            }
         }
         showOsd()
     }
@@ -352,26 +360,6 @@ class PlayerViewModel(
                 .onFailure(::report)
                 .onSuccess { loaded -> order.value = loaded }
         }
-    }
-
-    /**
-     * Seçim için sırayı verir. Yükleme henüz bitmediyse bekler; başarısız
-     * yüklemeden sonra (liste boş kaldıysa) bir kez tazelemeyi dener.
-     */
-    private suspend fun currentOrder(): List<Channel>? {
-        if (order.value.isNotEmpty()) return order.value
-        // Açılıştaki yükleme henüz bitmemiş olabilir: birkaç tick bekle,
-        // kanal açılışının peşinden gelen zapping bunu geciktirmesin.
-        val settled = withTimeoutOrNull(ORDER_WAIT_MS) {
-            order.first { it.isNotEmpty() }
-        }
-        if (settled != null) return settled
-        if (order.value.isEmpty()) {
-            runCatching { repository.zappingOrder() }
-                .onFailure(::report)
-                .onSuccess { loaded -> order.value = loaded }
-        }
-        return order.value.takeIf { it.isNotEmpty() }
     }
 
     /**
@@ -497,7 +485,6 @@ class PlayerViewModel(
         const val SEEK_FORWARD_STEP_MS = 10_000L
         const val DEFAULT_BUFFER_SECONDS = 30
         private const val PROGRESS_MS = 3_000L
-        private const val ORDER_WAIT_MS = 1_000L
 
         fun factory(
             playbackController: PlaybackController,

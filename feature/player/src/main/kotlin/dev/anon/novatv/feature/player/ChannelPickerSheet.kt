@@ -21,7 +21,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
@@ -65,7 +64,7 @@ internal fun ChannelPickerSheet(
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    var query by rememberSaveable { mutableStateOf("") }
+    var query by remember { mutableStateOf("") }
     val searchFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -73,7 +72,8 @@ internal fun ChannelPickerSheet(
     val searching = query.isNotBlank()
 
     // Panel açılınca aramaya odaklan (klavye donanıma bırakılır: kendiliğinden
-    // açılan klavye listeden seçimi zorlaştırır).
+    // açılan klavye listeden seçimi zorlaştırır). Arama metni panelle birlikte
+    // yaşar; panel durumunu tutan `pickerOpen` de kaydedilmediğinden ikisi aynı.
     LaunchedEffect(Unit) { runCatching { searchFocus.requestFocus() } }
 
     Column(

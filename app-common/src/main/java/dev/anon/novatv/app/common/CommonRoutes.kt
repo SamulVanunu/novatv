@@ -130,6 +130,8 @@ fun PlayerRouteContent(
             onSeekForward = { viewModel.seekForward() },
             onCycleAspect = viewModel::cycleAspect,
             onCycleBuffer = viewModel::cycleBuffer,
+            onSelectAudio = viewModel::selectAudio,
+            onSelectSubtitle = viewModel::selectSubtitle,
             onChannelStep = viewModel::stepChannel,
             onMenuOpenChange = viewModel::keepOsdVisible,
         )
