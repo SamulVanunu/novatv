@@ -47,6 +47,7 @@ fun MobileMoreScreen(
     onSettings: () -> Unit,
     onBackup: () -> Unit,
     onRestore: () -> Unit,
+    message: String? = null,
     modifier: Modifier = Modifier,
 ) {
     NovaBackground(modifier = modifier.testTag("more-screen")) {
@@ -105,6 +106,17 @@ fun MobileMoreScreen(
                     onClick = onRestore,
                     testTag = "more-restore",
                 )
+                // Ayarlar ekranındaki mesaj satırının aynısı: yedek alma ve
+                // geri yükleme sonucu burada okunur.
+                message?.let { text ->
+                    Text(
+                        text = text,
+                        style = NovaType.Small.copy(color = NovaColors.Accent),
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .testTag("more-message"),
+                    )
+                }
             }
         }
     }
