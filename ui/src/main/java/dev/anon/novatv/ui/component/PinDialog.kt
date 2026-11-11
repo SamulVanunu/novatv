@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -28,6 +29,9 @@ import dev.anon.novatv.ui.theme.NovaType
  *
  * Sistem klavyesi TV'de hantal olduğu için 3×4 tuş takımı çizilir; 4 hane
  * girilince Tamam etkinleşir. Doğrulama çağırana aittir.
+ *
+ * [touch] doğrulama: dokunmatik cihazda tuşlar 48 dp tabanına çekilir. TV
+ * ölçüleri değişmesin diye varsayılan kapalı.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -37,9 +41,11 @@ fun PinDialog(
     onDismiss: () -> Unit,
     subtitle: String? = null,
     error: Boolean = false,
+    touch: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     var digits by remember { mutableStateOf("") }
+    val keyModifier = if (touch) Modifier.heightIn(min = 48.dp) else Modifier
 
     Dialog(onDismissRequest = onDismiss) {
         NovaPanel(width = 340.dp) {
@@ -91,7 +97,7 @@ fun PinDialog(
                                     else -> if (digits.length < MAX_DIGITS) digits += label
                                 }
                             },
-                            modifier = Modifier.weight(1f),
+                            modifier = Modifier.weight(1f).then(keyModifier),
                             accent = label == "Tamam",
                             enabled = label != "Tamam" || digits.length >= 4,
                             testTag = "pin-key-$label",
@@ -104,7 +110,7 @@ fun PinDialog(
             NovaPill(
                 label = "Vazgeç",
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().then(keyModifier),
                 testTag = "pin-cancel",
             )
         }

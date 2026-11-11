@@ -38,6 +38,7 @@ import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 import dev.anon.novatv.ui.theme.NovaType
@@ -60,12 +61,74 @@ fun PlaylistFormScreen(
     onSave: () -> Unit,
     onBack: () -> Unit,
     onSaved: (Long) -> Unit = {},
+    window: NovaWindow = NovaWindow.Expanded,
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(state.savedId) {
         state.savedId?.let(onSaved)
     }
 
+    when (window) {
+        NovaWindow.Compact, NovaWindow.Medium -> {
+            CompactPlaylistForm(
+                state = state,
+                onName = onName,
+                onType = onType,
+                onUrl = onUrl,
+                onUsername = onUsername,
+                onPassword = onPassword,
+                onEpgUrl = onEpgUrl,
+                onUserAgent = onUserAgent,
+                onReferer = onReferer,
+                onSyncInterval = onSyncInterval,
+                onTest = onTest,
+                onSave = onSave,
+                onBack = onBack,
+                modifier = modifier,
+            )
+        }
+
+        NovaWindow.Expanded -> TvPlaylistForm(
+            state = state,
+            onName = onName,
+            onType = onType,
+            onUrl = onUrl,
+            onUsername = onUsername,
+            onPassword = onPassword,
+            onEpgUrl = onEpgUrl,
+            onUserAgent = onUserAgent,
+            onReferer = onReferer,
+            onSyncInterval = onSyncInterval,
+            onTest = onTest,
+            onSave = onSave,
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
+}
+
+/**
+ * TV gövdesi: iki sütun ve sabit düğme çubuğu bugünkü gibi.
+ * `window == Expanded` dışında çizilmez.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvPlaylistForm(
+    state: PlaylistFormState,
+    onName: (String) -> Unit,
+    onType: (PlaylistType) -> Unit,
+    onUrl: (String) -> Unit,
+    onUsername: (String) -> Unit,
+    onPassword: (String) -> Unit,
+    onEpgUrl: (String) -> Unit,
+    onUserAgent: (String) -> Unit,
+    onReferer: (String) -> Unit,
+    onSyncInterval: (String) -> Unit,
+    onTest: () -> Unit,
+    onSave: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     NovaBackground(modifier = modifier) {
         Column(
             modifier = Modifier
@@ -101,7 +164,7 @@ fun PlaylistFormScreen(
                             ) {
                                 PlaylistType.entries.forEach { type ->
                                     NovaPill(
-                                        label = typeLabel(type),
+                                        label = formTypeLabel(type),
                                         onClick = { onType(type) },
                                         selected = state.type == type,
                                         testTag = "type-${type.name}",
@@ -192,7 +255,7 @@ fun PlaylistFormScreen(
                         FormSection(modifier = Modifier.width(280.dp)) {
                             NovaLabel("Özet")
                             Text(
-                                text = typeLabel(state.type),
+                                text = formTypeLabel(state.type),
                                 style = NovaType.Title,
                                 modifier = Modifier.testTag("form-type-label"),
                             )
@@ -338,13 +401,13 @@ private fun FormField(
     }
 }
 
-private fun typeLabel(type: PlaylistType): String = when (type) {
+internal fun formTypeLabel(type: PlaylistType): String = when (type) {
     PlaylistType.XTREAM -> "Xtream Codes"
     PlaylistType.M3U -> "M3U / M3U8"
     PlaylistType.STALKER -> "Stalker Portal"
 }
 
-private val PlaylistFormState.typeHint: String
+internal val PlaylistFormState.typeHint: String
     get() = when (type) {
         PlaylistType.XTREAM -> "Sunucu adresi, kullanıcı adı ve şifre ile kanal listesi alınır."
         PlaylistType.M3U -> "Tek bir oynatma listesi bağlantısı; EPG isteğe bağlı."

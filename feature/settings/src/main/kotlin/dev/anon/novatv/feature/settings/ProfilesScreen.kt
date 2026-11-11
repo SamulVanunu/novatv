@@ -39,6 +39,7 @@ import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.component.PinDialog
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 import dev.anon.novatv.ui.theme.NovaType
@@ -56,11 +57,123 @@ fun ProfilesScreen(
     onRemovePin: (Profile) -> Unit,
     onDelete: (Profile) -> Unit,
     onBack: () -> Unit,
+    window: NovaWindow = NovaWindow.Expanded,
     modifier: Modifier = Modifier,
 ) {
     var editing by remember { mutableStateOf<Profile?>(null) }
     var adding by remember { mutableStateOf(false) }
 
+    // PIN ve profil formu iki yolda da ortak: seçim burada tutulur, diyalog
+    // aşağıda bir kez çizilir. Kompakt yol yalnız düzeni ve form kabuğunu
+    // değiştirir; PIN akışı aynıdır.
+    when (window) {
+        NovaWindow.Compact, NovaWindow.Medium -> CompactProfiles(
+            state = state,
+            onSelect = onSelect,
+            onAdd = { adding = true },
+            onEdit = { editing = it },
+            onDelete = onDelete,
+            onBack = onBack,
+            modifier = modifier,
+        )
+
+        NovaWindow.Expanded -> TvProfiles(
+            state = state,
+            onSelect = onSelect,
+            onAdd = { adding = true },
+            onEdit = { editing = it },
+            onDelete = onDelete,
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
+
+    state.pinTarget?.let { target ->
+        PinDialog(
+            title = "${target.name} profiline geç",
+            subtitle = "Bu profil PIN ile korunuyor",
+            error = state.pinError,
+            touch = window != NovaWindow.Expanded,
+            onSubmit = onSubmitPin,
+            onDismiss = onCancelPin,
+        )
+    }
+
+    if (adding) {
+        ProfileForm(
+            window = window,
+            title = "Yeni profil",
+            profile = null,
+            onSave = { name, pin, limit, kids ->
+                onAdd(name, pin, limit, kids)
+                adding = false
+            },
+            onDismiss = { adding = false },
+        )
+    }
+
+    editing?.let { profile ->
+        ProfileForm(
+            window = window,
+            title = "Profili düzenle",
+            profile = profile,
+            onSave = { name, pin, limit, kids ->
+                onUpdate(profile, name, pin, limit, kids)
+                editing = null
+            },
+            onRemovePin = { onRemovePin(profile) },
+            onDismiss = { editing = null },
+        )
+    }
+}
+
+/**
+ * Profil formu: geniş pencerede TV paneli, dar pencerede kaydırılabilir
+ * kompakt kart. PIN akışı (kaydet / kaldır / vazgeç) iki yolda aynıdır.
+ */
+@Composable
+private fun ProfileForm(
+    window: NovaWindow,
+    title: String,
+    profile: Profile?,
+    onSave: (name: String, pin: String?, limit: String?, kids: Boolean) -> Unit,
+    onDismiss: () -> Unit,
+    onRemovePin: (() -> Unit)? = null,
+) {
+    when (window) {
+        NovaWindow.Expanded -> ProfileFormDialog(
+            title = title,
+            profile = profile,
+            onSave = onSave,
+            onDismiss = onDismiss,
+            onRemovePin = onRemovePin,
+        )
+
+        NovaWindow.Compact, NovaWindow.Medium -> CompactProfileFormDialog(
+            title = title,
+            profile = profile,
+            onSave = onSave,
+            onDismiss = onDismiss,
+            onRemovePin = onRemovePin,
+        )
+    }
+}
+
+/**
+ * TV gövdesi: profil satırları tek çizgide, done dokunmaya değil kumandaya
+ * göre. `window == Expanded` dışında çizilmez.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvProfiles(
+    state: ProfilesUiState,
+    onSelect: (Profile) -> Unit,
+    onAdd: () -> Unit,
+    onEdit: (Profile) -> Unit,
+    onDelete: (Profile) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     NovaBackground(modifier = modifier) {
         Column(
             modifier = Modifier
@@ -76,7 +189,7 @@ fun ProfilesScreen(
                     NovaLabel("Profiller")
                     Text(text = "Kim izliyor?", style = NovaType.Title)
                 }
-                NovaPill(label = "Yeni profil", onClick = { adding = true }, testTag = "profile-add")
+                NovaPill(label = "Yeni profil", onClick = onAdd, testTag = "profile-add")
                 NovaPill(label = "Ayarlar", onClick = onBack, testTag = "profiles-back")
             }
 
@@ -94,7 +207,7 @@ fun ProfilesScreen(
                         active = profile.id == state.activeId,
                         canDelete = state.profiles.size > 1,
                         onSelect = { onSelect(profile) },
-                        onEdit = { editing = profile },
+                        onEdit = { onEdit(profile) },
                         onDelete = { onDelete(profile) },
                     )
                 }
@@ -108,41 +221,6 @@ fun ProfilesScreen(
                 )
             }
         }
-    }
-
-    state.pinTarget?.let { target ->
-        PinDialog(
-            title = "${target.name} profiline geç",
-            subtitle = "Bu profil PIN ile korunuyor",
-            error = state.pinError,
-            onSubmit = onSubmitPin,
-            onDismiss = onCancelPin,
-        )
-    }
-
-    if (adding) {
-        ProfileFormDialog(
-            title = "Yeni profil",
-            profile = null,
-            onSave = { name, pin, limit, kids ->
-                onAdd(name, pin, limit, kids)
-                adding = false
-            },
-            onDismiss = { adding = false },
-        )
-    }
-
-    editing?.let { profile ->
-        ProfileFormDialog(
-            title = "Profili düzenle",
-            profile = profile,
-            onSave = { name, pin, limit, kids ->
-                onUpdate(profile, name, pin, limit, kids)
-                editing = null
-            },
-            onRemovePin = { onRemovePin(profile) },
-            onDismiss = { editing = null },
-        )
     }
 }
 

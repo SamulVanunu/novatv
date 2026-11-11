@@ -43,6 +43,7 @@ import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPanel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 
@@ -58,10 +59,74 @@ fun PlaylistsScreen(
     onMoveDown: (Playlist) -> Unit,
     onDelete: (Playlist) -> Unit,
     onBackToLive: () -> Unit = {},
+    window: NovaWindow = NovaWindow.Expanded,
     modifier: Modifier = Modifier,
 ) {
     var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
     val emptyFocus = remember { FocusRequester() }
+
+    when (window) {
+        NovaWindow.Compact, NovaWindow.Medium -> {
+            CompactPlaylists(
+                state = state,
+                onAdd = onAdd,
+                onEdit = onEdit,
+                onRefresh = onRefresh,
+                onToggleActive = onToggleActive,
+                onMoveUp = onMoveUp,
+                onMoveDown = onMoveDown,
+                onDelete = { pendingDelete = it },
+                onBackToLive = onBackToLive,
+                modifier = modifier,
+            )
+            pendingDelete?.let { playlist ->
+                CompactDeleteConfirmDialog(
+                    name = playlist.name,
+                    onConfirm = {
+                        pendingDelete = null
+                        onDelete(playlist)
+                    },
+                    onDismiss = { pendingDelete = null },
+                )
+            }
+        }
+
+        NovaWindow.Expanded -> TvPlaylists(
+            state = state,
+            onAdd = onAdd,
+            onEdit = onEdit,
+            onRefresh = onRefresh,
+            onToggleActive = onToggleActive,
+            onMoveUp = onMoveUp,
+            onMoveDown = onMoveDown,
+            onDelete = onDelete,
+            onBackToLive = onBackToLive,
+            emptyFocus = emptyFocus,
+            modifier = modifier,
+        )
+    }
+}
+
+/**
+ * TV gövdesi: bugünkü düzen, boşluklar ve odak davranışı aynen korunur.
+ * `window == Expanded` dışında çizilmez.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvPlaylists(
+    state: PlaylistsUiState,
+    onAdd: () -> Unit,
+    onEdit: (Playlist) -> Unit,
+    onRefresh: (Playlist) -> Unit,
+    onToggleActive: (Playlist) -> Unit,
+    onMoveUp: (Playlist) -> Unit,
+    onMoveDown: (Playlist) -> Unit,
+    onDelete: (Playlist) -> Unit,
+    onBackToLive: () -> Unit,
+    emptyFocus: FocusRequester,
+    modifier: Modifier = Modifier,
+) {
+    var pendingDelete by remember { mutableStateOf<Playlist?>(null) }
 
     LaunchedEffect(state.loading, state.items.size) {
         if (!state.loading && state.items.isEmpty()) {
@@ -213,7 +278,7 @@ private fun PlaylistRow(
                         modifier = Modifier.weight(1f, fill = false).testTag("playlist-name"),
                     )
                     Spacer(Modifier.width(12.dp))
-                    NovaBadge(typeLabel(playlist.type), color = NovaColors.TextMuted)
+                    NovaBadge(listTypeLabel(playlist.type), color = NovaColors.TextMuted)
                     Spacer(Modifier.width(8.dp))
                     StatusBadge(playlist.syncState)
                     if (!playlist.isActive) {
@@ -302,7 +367,7 @@ private fun DeleteConfirmDialog(name: String, onConfirm: () -> Unit, onDismiss: 
     }
 }
 
-private fun typeLabel(type: PlaylistType): String = when (type) {
+internal fun listTypeLabel(type: PlaylistType): String = when (type) {
     PlaylistType.XTREAM -> "Xtream"
     PlaylistType.M3U -> "M3U"
     PlaylistType.STALKER -> "Stalker"
