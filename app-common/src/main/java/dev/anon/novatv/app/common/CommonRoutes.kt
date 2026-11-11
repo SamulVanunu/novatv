@@ -132,6 +132,15 @@ fun PlayerRouteContent(
             onCycleBuffer = viewModel::cycleBuffer,
             onSelectAudio = viewModel::selectAudio,
             onSelectSubtitle = viewModel::selectSubtitle,
+            onPickSubtitleFile = {
+                // Belge seçici olmayan cihazlarda Türkçe bilgi göster;
+                // TV yoluyla aynı kural.
+                if (hasDocumentPicker(context)) {
+                    subtitlePicker.launch(arrayOf("*/*"))
+                } else {
+                    viewModel.reportMissingSubtitlePicker()
+                }
+            },
             onChannelStep = viewModel::stepChannel,
             onMenuOpenChange = viewModel::keepOsdVisible,
         )

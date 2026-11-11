@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
@@ -275,7 +276,10 @@ internal fun TrackMenuDialog(
     onDismiss: () -> Unit,
     allowOff: Boolean = false,
     extraAction: Pair<String, () -> Unit>? = null,
+    touch: Boolean = false,
 ) {
+    // Dokunmatikte parça düğmeleri 48 dp tabanına oturur; TV ölçüsü değişmez.
+    val pill = Modifier.fillMaxWidth().then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier)
     Dialog(onDismissRequest = onDismiss) {
         NovaPanel {
             NovaLabel("Parça")
@@ -291,28 +295,28 @@ internal fun TrackMenuDialog(
                 NovaPill(
                     label = choice.label,
                     onClick = { onSelect(choice.id) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = pill,
                 )
             }
             if (allowOff) {
                 NovaPill(
                     label = "Kapalı",
                     onClick = { onSelect(null) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = pill,
                 )
             }
             extraAction?.let { (label, action) ->
                 NovaPill(
                     label = label,
                     onClick = action,
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = pill,
                     testTag = "osd-subtitle-file",
                 )
             }
             NovaPill(
                 label = "Vazgeç",
                 onClick = onDismiss,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = pill,
             )
         }
     }

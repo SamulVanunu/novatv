@@ -35,6 +35,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -90,6 +92,7 @@ fun TouchPlayerScreen(
     onCycleBuffer: () -> Unit,
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
+    onPickSubtitleFile: () -> Unit = {},
     onChannelStep: (Int) -> Unit = {},
     onMenuOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
@@ -156,6 +159,7 @@ fun TouchPlayerScreen(
                 onClick = onToggleOsd,
                 modifier = Modifier
                     .fillMaxSize()
+                    .semantics { contentDescription = "Kontrolleri göster" }
                     .testTag("touch-video-tap"),
             ) { }
         }
@@ -224,17 +228,25 @@ fun TouchPlayerScreen(
                     trackMenu = TrackMenu.NONE
                 },
                 onDismiss = { trackMenu = TrackMenu.NONE },
+                touch = true,
             )
 
             TrackMenu.SUBTITLE -> TrackMenuDialog(
                 title = "Altyazı",
                 choices = state.subtitleTracks,
                 allowOff = true,
+                // Dosya tabanlı altyazı yalnız TV'de vardı; telefonda seçici
+                // hiç açılmıyordu. Aynı eylem menüye burada da eklenir.
+                extraAction = "Dosyadan seç" to {
+                    trackMenu = TrackMenu.NONE
+                    onPickSubtitleFile()
+                },
                 onSelect = {
                     onSelectSubtitle(it)
                     trackMenu = TrackMenu.NONE
                 },
                 onDismiss = { trackMenu = TrackMenu.NONE },
+                touch = true,
             )
 
             TrackMenu.NONE -> Unit

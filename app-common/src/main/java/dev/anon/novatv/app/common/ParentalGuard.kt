@@ -114,9 +114,14 @@ fun rememberParentalGuard(profiles: ProfileRepository): ParentalGuardState {
     return remember(profiles) { ParentalGuardState(profiles, scope) }
 }
 
-/** Kapı bekliyorsa PIN panelini çizer. */
+/**
+ * Kapı bekliyorsa PIN panelini çizer.
+ *
+ * [touch] doğrudan [PinDialog]'a geçer: dokunmatik kabuk tuşları 48 dp'ye
+ * çeker, televizyon çağrısı varsayılanı kullanır ve ölçüleri değişmez.
+ */
 @Composable
-fun ParentalGuardDialog(state: ParentalGuardState) {
+fun ParentalGuardDialog(state: ParentalGuardState, touch: Boolean = false) {
     val action = state.pendingAction
     if (action != null) {
         PinDialog(
@@ -125,6 +130,7 @@ fun ParentalGuardDialog(state: ParentalGuardState) {
             error = state.pinError,
             onSubmit = state::submitPin,
             onDismiss = state::cancel,
+            touch = touch,
         )
     }
 }
