@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- İzinler, servisler ve WorkManager yapılandırması :app-common manifestinde;
          ikon, tema ve ağ güvenliği kaynakları da :app-common'ta.
@@ -26,6 +27,22 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- WorkManager: varsayılan başlatıcı kaldırılır, `MobileApplication`
+             (NovaApplication üzerinden) Configuration.Provider sağlar.
+             :app-common aynı kaydı taşıyor ama lint yalnızca modülün kendi
+             manifestine baktığı için burada da gerekli; birleşmede tek kayıt
+             olur (aynı yetki, aynı remove). -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
     </application>
 
 </manifest>
