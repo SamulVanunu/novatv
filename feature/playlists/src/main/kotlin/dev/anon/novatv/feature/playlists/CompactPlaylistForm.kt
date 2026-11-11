@@ -94,6 +94,11 @@ internal fun CompactPlaylistForm(
                 verticalArrangement = Arrangement.spacedBy(spacing.gap),
             ) {
                 CompactFormHeader(state)
+                // Geri yalnız formun sonunda kalırsa üç ekran kaydırmak
+                // gerekir; başlığın altında da bir çıkış var.
+                CompactPillRow {
+                    CompactPill(label = "‹ Geri", onClick = onBack, testTag = "form-back-top")
+                }
                 NovaRule(Modifier.fillMaxWidth())
 
                 CompactFormSection {
@@ -267,8 +272,10 @@ private fun CompactFormHeader(state: PlaylistFormState) {
             text = if (state.id == null) "Kaynak ekle" else "Kaynağı düzenle",
             style = NovaType.Display.copy(fontSize = 28.sp),
         )
+        // Xtream adresi kullanıcı/şifreyi yol içinde taşır; "adrese gömülmez"
+        // cümlesi bu türde doğru değil. Telefonda doğru olanı yazıyoruz.
         Text(
-            text = "Kimlik bilgileri cihazda şifreli saklanır, yayın adreslerine gömülmez.",
+            text = "Kimlik bilgileri cihazda şifreli saklanır.",
             style = NovaType.Small.copy(color = NovaColors.TextMuted),
         )
     }

@@ -337,7 +337,7 @@ private fun CompactStatusBadge(state: SyncState) {
 
 /** 48 dp dokunma hedefi: kart eylemleri. */
 @Composable
-private fun CompactPill(
+internal fun CompactPill(
     label: String,
     onClick: () -> Unit,
     accent: Boolean = false,
@@ -358,7 +358,7 @@ private fun CompactPill(
  * başlar.
  */
 @Composable
-private fun CompactPillRow(
+internal fun CompactPillRow(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
