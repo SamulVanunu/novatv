@@ -1,4 +1,4 @@
-package dev.anon.novatv.app
+package dev.anon.novatv.app.common
 
 import android.content.BroadcastReceiver
 import android.content.Context

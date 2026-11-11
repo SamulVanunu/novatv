@@ -1,7 +1,5 @@
 package dev.anon.novatv.app
 
-import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,11 +20,17 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.paging.compose.collectAsLazyPagingItems
+import dev.anon.novatv.app.common.NovaGraph
+import dev.anon.novatv.app.common.ParentalGuardDialog
+import dev.anon.novatv.app.common.PlayerRouteContent
+import dev.anon.novatv.app.common.Routes
+import dev.anon.novatv.app.common.hasDocumentPicker
+import dev.anon.novatv.app.common.rememberParentalGuard
 import dev.anon.novatv.core.model.Channel
+import dev.anon.novatv.core.player.PlaybackController
 import dev.anon.novatv.core.model.ItemType
 import dev.anon.novatv.core.settings.Appearance
 import dev.anon.novatv.core.sync.SearchKind
-import dev.anon.novatv.core.player.PlaybackController
 import dev.anon.novatv.feature.epg.EpgRoutes
 import dev.anon.novatv.feature.epg.EpgScreen
 import dev.anon.novatv.feature.epg.EpgViewModel
@@ -43,11 +47,9 @@ import dev.anon.novatv.feature.multiwall.MultiWallScreen
 import dev.anon.novatv.feature.multiwall.MultiWallViewModel
 import dev.anon.novatv.feature.player.ChannelStreamResolver
 import dev.anon.novatv.feature.player.PlayerRoutes
-import dev.anon.novatv.feature.player.PlayerScreen
 import dev.anon.novatv.feature.player.PlayerViewModel
 import dev.anon.novatv.feature.player.VodPlayerRoutes
 import dev.anon.novatv.feature.player.VodRequest
-import dev.anon.novatv.feature.player.findActivity
 import dev.anon.novatv.feature.playlists.PlaylistFormScreen
 import dev.anon.novatv.feature.playlists.PlaylistFormViewModel
 import dev.anon.novatv.feature.playlists.PlaylistsRoutes
@@ -66,39 +68,8 @@ import dev.anon.novatv.feature.settings.SettingsScreen
 import dev.anon.novatv.feature.settings.SettingsViewModel
 import java.io.File
 import java.time.Instant
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-
-object Routes {
-    const val LIVE = "live"
-}
-
-/** Seçilen dosyanın uzantısına göre Media3 altyazı MIME türü. */
-private fun subtitleMimeType(context: Context, uri: Uri): String {
-    val name = (uri.lastPathSegment ?: uri.path.orEmpty()).lowercase()
-    return when {
-        name.endsWith(".srt") -> "application/x-subrip"
-        name.endsWith(".vtt") -> "text/vtt"
-        name.endsWith(".ssa") -> "text/x-ssa"
-        name.endsWith(".ass") -> "text/x-ass"
-        else -> context.contentResolver.getType(uri) ?: "application/x-subrip"
-    }
-}
-
-/**
- * Android TV görüntülerinde belge seçici yerine yalnızca "uygulama yok" diyen
- * bir saplama (stub) olabilir; onu gerçek seçici sayma.
- */
-private fun hasDocumentPicker(context: Context): Boolean {
-    val intent = Intent(Intent.ACTION_OPEN_DOCUMENT)
-        .addCategory(Intent.CATEGORY_OPENABLE)
-        .setType("*/*")
-    val resolved = context.packageManager.resolveActivity(intent, 0) ?: return false
-    val packageName = resolved.activityInfo?.packageName ?: return false
-    return !packageName.startsWith("com.android.tv.frameworkpackagestubs") &&
-        !packageName.startsWith("com.google.android.tv.frameworkpackagestubs")
-}
 
 @Composable
 fun NovaNavHost(graph: NovaGraph) {
@@ -678,64 +649,4 @@ private fun rememberPlayerController(): PlaybackController {
         onDispose { controller.release() }
     }
     return controller
-}
-
-@Composable
-private fun PlayerRouteContent(
-    controller: PlaybackController,
-    viewModel: PlayerViewModel,
-    sleepMinutes: Int = 0,
-    autoFrameRate: Boolean = false,
-    onBack: () -> Unit,
-) {
-    val context = LocalContext.current
-    val activity = remember(context) { context.findActivity() }
-    val frameRate by controller.videoFrameRate.collectAsStateWithLifecycle()
-
-    LaunchedEffect(autoFrameRate, frameRate) {
-        if (autoFrameRate) dev.anon.novatv.feature.player.AutoFrameRate.apply(activity, frameRate)
-    }
-    // Oynatıcıdan çıkınca ekran modu varsayılana döner; yoksa menü 24 Hz'de kalır.
-    DisposableEffect(autoFrameRate) {
-        onDispose {
-            if (autoFrameRate) dev.anon.novatv.feature.player.AutoFrameRate.reset(activity)
-        }
-    }
-    LaunchedEffect(sleepMinutes) {
-        if (sleepMinutes > 0) {
-            delay(sleepMinutes * 60_000L)
-            runCatching { controller.pause() }
-        }
-    }
-    val state by viewModel.state.collectAsStateWithLifecycle()
-    val subtitlePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri != null) viewModel.setExternalSubtitle(uri, subtitleMimeType(context, uri))
-    }
-    PlayerScreen(
-        state = state,
-        controller = controller,
-        onToggleOsd = viewModel::toggleOsd,
-        onHideOsd = viewModel::hideOsd,
-        onRetry = viewModel::retry,
-        onBackToChannels = onBack,
-        onSeekBack = { viewModel.seekBack() },
-        onSeekBackMinute = viewModel::seekBackMinute,
-        onCycleAspect = viewModel::cycleAspect,
-        onCycleBuffer = viewModel::cycleBuffer,
-        onSelectAudio = viewModel::selectAudio,
-        onSelectSubtitle = viewModel::selectSubtitle,
-        onPickSubtitleFile = {
-            // Belge seçici olmayan cihazlarda (bazı TV kutuları) İngilizce
-            // sistem toast'u yerine Türkçe bilgi göster.
-            if (hasDocumentPicker(context)) {
-                subtitlePicker.launch(arrayOf("*/*"))
-            } else {
-                viewModel.reportMissingSubtitlePicker()
-            }
-        },
-        onChannelStep = viewModel::stepChannel,
-        onMenuOpenChange = viewModel::keepOsdVisible,
-    )
 }

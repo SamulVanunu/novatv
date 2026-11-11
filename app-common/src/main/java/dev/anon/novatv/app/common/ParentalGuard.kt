@@ -1,4 +1,4 @@
-package dev.anon.novatv.app
+package dev.anon.novatv.app.common
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable

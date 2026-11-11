@@ -68,6 +68,7 @@ kotlin {
 }
 
 dependencies {
+    implementation(project(":app-common"))
     implementation(project(":ui"))
     implementation(project(":core:database"))
     implementation(project(":core:sync"))

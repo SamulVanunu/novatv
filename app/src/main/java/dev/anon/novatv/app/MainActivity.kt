@@ -13,6 +13,8 @@ import androidx.compose.ui.Modifier
 import androidx.tv.material3.ExperimentalTvMaterial3Api
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.MaterialTheme
+import dev.anon.novatv.app.common.NovaApplication
+import dev.anon.novatv.app.common.NovaGraph
 import dev.anon.novatv.core.settings.Appearance
 import dev.anon.novatv.feature.player.PlayerPip
 import dev.anon.novatv.feature.player.enterPlayerPictureInPicture

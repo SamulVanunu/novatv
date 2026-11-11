@@ -10,6 +10,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import dev.anon.novatv.app.common.NovaApplication
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith

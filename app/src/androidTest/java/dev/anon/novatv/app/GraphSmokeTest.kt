@@ -2,6 +2,8 @@ package dev.anon.novatv.app
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import dev.anon.novatv.app.common.NovaApplication
+import dev.anon.novatv.app.common.NovaGraph
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout

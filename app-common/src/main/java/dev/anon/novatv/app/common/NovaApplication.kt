@@ -1,4 +1,4 @@
-package dev.anon.novatv.app
+package dev.anon.novatv.app.common
 
 import android.app.Application
 import androidx.work.Configuration

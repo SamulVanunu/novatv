@@ -15,6 +15,7 @@ dependencyResolutionManagement {
 rootProject.name = "NovaTV"
 include(
     ":app",
+    ":app-common",
     ":ui",
     ":core:model",
     ":core:database",
