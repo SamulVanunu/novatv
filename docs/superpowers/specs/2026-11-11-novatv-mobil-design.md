@@ -90,8 +90,10 @@ profiller taşınmaz. Geçiş yolu mevcut yedek/geri yükleme:
 
 ## 4. Uyarlanabilir katman (`ui`)
 
-- `NovaWindow`: kısa kenara göre `Compact (<600 dp)`, `Medium (600–840)`,
-  `Expanded (≥840)`. `LocalConfiguration` + `BoxWithConstraints` ile tek yerden.
+- `NovaWindow`: pencere genişliğine göre `Compact (<600 dp)`, `Medium (600–840)`,
+  `Expanded (≥840)` — Android/Material pencere sınıfı kuralı; döndürülmüş
+  telefonda genişlik büyüdüğü için sınıf da büyür. Tek yerden
+  `LocalConfiguration.current.screenWidthDp`.
 - `NovaScaffold`: `Expanded`/TV → bugünkü yan ray; `Compact`/`Medium` → alt
   gezinme çubuğu. TV her zaman `Expanded` olduğu için TV düzeni korunur.
 - Tokenlar: kenar boşluğu 16/24/32, dokunma hedefi ≥48 dp, satır yüksekliği
