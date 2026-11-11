@@ -19,12 +19,15 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.Instant
 
 /** Kanalın yayın adresini üretir; Xtream kimliği Room'a yazılmadığı için her açılışta çözülür. */
@@ -73,6 +76,7 @@ class PlayerViewModel(
     private val osdVisible = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
     private val zap = MutableStateFlow<Channel?>(null)
+    private val order = MutableStateFlow<List<Channel>>(emptyList())
     private var zapJob: Job? = null
     private var hideJob: Job? = null
     private var lastRecordedChannelId: Long? = null
@@ -86,6 +90,16 @@ class PlayerViewModel(
     private val bufferSeconds: StateFlow<Int> = preferenceStore.playerBufferSeconds
         .catch { emit(DEFAULT_BUFFER_SECONDS) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, DEFAULT_BUFFER_SECONDS)
+
+    /**
+     * Zapping sırası: Rehber'in gördüğü liste ([ChannelRepository.zappingOrder],
+     * gizli kanal/grup yok, numara/ad sırası). [stepChannel] ve [selectChannel]
+     * tek bu sıradan seçim yapar; dokunmatik kanal listesi de bu akışı okur.
+     *
+     * Açılışta bir kez yüklenir. İlk yükleme başarısızsa boş kalır, fırlatmaz;
+     * listeden seçim yapılırken bir kez daha denenir.
+     */
+    val channelOrder: StateFlow<List<Channel>> = order.asStateFlow()
 
     private val playbackInfo = combine(
         playbackController.state,
@@ -150,6 +164,7 @@ class PlayerViewModel(
                 runCatching { repository.recordWatch(current) }.onFailure(::report)
             }
         }
+        loadChannelOrder()
     }
 
     fun open(channelId: Long, catchupAt: Long? = null, catchupMinutes: Int = 0) {
@@ -189,24 +204,33 @@ class PlayerViewModel(
     /**
      * Kanalı [delta] kadar ilerletir (CH+/CH- ya da D-pad yukarı/ağı).
      *
-     * Sıra, Rehber'in gördüğü liste: gizli kanal/gruplar yok, numara/ad sırası.
-     * Uçlarda başa döner; arşiv (catch-up) izlerken canlıya geçer, film/dizide
-     * çalışmaz.
+     * Sıra [channelOrder]: gizli kanal/gruplar yok, numara/ad sırası. Uçlarda
+     * başa döner; arşiv (catch-up) izlerken canlıya geçer, film/dizide çalışmaz.
      */
     fun stepChannel(delta: Int) {
         if (vod != null) return
         val current = channel.value ?: return
         viewModelScope.launch {
-            val order = runCatching { repository.zappingOrder() }
-                .onFailure(::report)
-                .getOrNull()
-                ?: return@launch
+            val order = currentOrder() ?: return@launch
             val target = channelStep(order, current.id, delta) ?: return@launch
-            catchup = null
-            hideOsd()
-            channel.value = target
-            showZapBadge(target)
-            play(target)
+            stageChannel(target)
+        }
+    }
+
+    /**
+     * Listeden doğrudan kanal seçimi (dokunmatik kanal listesi).
+     *
+     * Aynı kanala dokunmak yeniden yükleme yapmaz. Farklı kanalda arşiv aralığı
+     * temizlenir, OSD kapanır, kanal bandı görünür ve canlı yayın açılır — TV'de
+     * CH+/CH- ile geçişin yaptığı işin aynısı. Film/dizi oynarken yok sayılır.
+     */
+    fun selectChannel(selected: Channel) {
+        if (vod != null) return
+        val currentId = channel.value?.id
+        viewModelScope.launch {
+            val order = currentOrder() ?: return@launch
+            val target = channelSwitchTarget(order, currentId, selected.id) ?: return@launch
+            stageChannel(target)
         }
     }
 
@@ -253,6 +277,20 @@ class PlayerViewModel(
     }
 
     fun seekBackMinute() = seekBack(SEEK_BACK_MINUTE_MS)
+
+    /**
+     * [ms] kadar ileri sarar (film/dizi; dokunmatik OSD'nin +10 sn düğmesi).
+     * Hedef, süre biliniyorsa süreyi aşmaz. Canlıda sarma yok.
+     */
+    fun seekForward(ms: Long = SEEK_FORWARD_STEP_MS) {
+        if (vod == null) return
+        runCatching {
+            val duration = playbackController.durationMs
+            val target = playbackController.positionMs + ms
+            playbackController.seekTo(if (duration > 0) target.coerceAtMost(duration) else target)
+        }
+        showOsd()
+    }
 
     fun selectAudio(id: String) {
         playbackController.selectAudio(id)
@@ -303,6 +341,51 @@ class PlayerViewModel(
     }
 
     fun playback(): PlaybackController = playbackController
+
+    /**
+     * Zapping sırasını yükler (bir kez, açılışta). Hata fırlatmaz; başarısız
+     * yüklemede liste boş kalır ve kanal değişimi çalışmaz.
+     */
+    private fun loadChannelOrder() {
+        viewModelScope.launch {
+            runCatching { repository.zappingOrder() }
+                .onFailure(::report)
+                .onSuccess { loaded -> order.value = loaded }
+        }
+    }
+
+    /**
+     * Seçim için sırayı verir. Yükleme henüz bitmediyse bekler; başarısız
+     * yüklemeden sonra (liste boş kaldıysa) bir kez tazelemeyi dener.
+     */
+    private suspend fun currentOrder(): List<Channel>? {
+        if (order.value.isNotEmpty()) return order.value
+        // Açılıştaki yükleme henüz bitmemiş olabilir: birkaç tick bekle,
+        // kanal açılışının peşinden gelen zapping bunu geciktirmesin.
+        val settled = withTimeoutOrNull(ORDER_WAIT_MS) {
+            order.first { it.isNotEmpty() }
+        }
+        if (settled != null) return settled
+        if (order.value.isEmpty()) {
+            runCatching { repository.zappingOrder() }
+                .onFailure(::report)
+                .onSuccess { loaded -> order.value = loaded }
+        }
+        return order.value.takeIf { it.isNotEmpty() }
+    }
+
+    /**
+     * Kanala geçişin ortak etkisi: arşiv aralığı temizlenir, OSD kapanır,
+     * kanal bandı görünür ve yayın açılır. [stepChannel] ve [selectChannel]
+     * hedef kanalı kendi kararıyla bulur, etkiyi burada paylaşır.
+     */
+    private suspend fun stageChannel(target: Channel) {
+        catchup = null
+        hideOsd()
+        channel.value = target
+        showZapBadge(target)
+        play(target)
+    }
 
     private suspend fun playVod(request: VodRequest) {
         runCatching { request.resolve() }
@@ -411,8 +494,10 @@ class PlayerViewModel(
         const val ZAP_BADGE_MS = 2_500L
         const val SEEK_BACK_STEP_MS = 10_000L
         const val SEEK_BACK_MINUTE_MS = 60_000L
+        const val SEEK_FORWARD_STEP_MS = 10_000L
         const val DEFAULT_BUFFER_SECONDS = 30
         private const val PROGRESS_MS = 3_000L
+        private const val ORDER_WAIT_MS = 1_000L
 
         fun factory(
             playbackController: PlaybackController,
