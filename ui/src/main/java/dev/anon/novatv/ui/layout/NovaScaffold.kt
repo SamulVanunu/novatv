@@ -32,7 +32,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
@@ -60,13 +59,26 @@ fun navigationMode(window: NovaWindow): NovaNavMode = when (window) {
 }
 
 /**
- * Ortak kabuk: içerik + gezinme.
+ * Ortak kabuk: gezinme çubuğu içeriğin **üstüne** biner.
  *
- * `Bottom`: içerik üstte, eşit genişlikte beş dokunma hedefi altta.
- * `Rail`: içerik sağda, solda ince ray — `GroupRail`'in dikey akışı.
+ * İçerik alanı her zaman tüm pencereyi kaplar; gezinme kapladığı yeri
+ * `PaddingValues` ile bildirir, başka hiçbir yer offsetlenmez:
  *
- * Seçili sekme krem etiket + ray tarafındaki 3 dp kırmızı damga ile anlatılır;
- * odak dolgusu yalnız D-pad/klavye odaklanmasında görünür.
+ * - `Bottom`: içerik tam ekran (`fillMaxSize()`), alt çubuk alt kenara hizalı
+ *   olarak üstüne biner; içerik `PaddingValues(bottom = 64.dp)` alır, diğer
+ *   kenarlar sıfırdır.
+ * - `Rail`: içerik tam ekran, ray başlangıç kenarına hizalı olarak üstüne
+ *   biner; içerik `PaddingValues(start = 112.dp)` alır, diğer kenarlar sıfırdır.
+ *
+ * **Sözleşme (Task 4 çağıranı için):** boşluk yalnız bu `PaddingValues`'dan
+ * gelir. Çağıran kendi köküne `Modifier.fillMaxSize().padding(padding)`
+ * uyguladığında içerik tam olarak çubuğun/rayın yanına yerleşir. Ekstra
+ * `weight`, `offset` veya ikinci bir padding uygulanırsa çift boşluk olur.
+ * Ekran kenarı boşluğu (`NovaSpacing.screen`) bunun **üstüne** eklenebilir;
+ * kabuk onu zaten vermez.
+ *
+ * Seçili sekme krem etiket + 3 dp kırmızı damga ile anlatılır; odak dolgusu
+ * yalnız D-pad/klavye odaklanmasında görünür.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -78,50 +90,35 @@ fun NovaScaffold(
     modifier: Modifier = Modifier,
     content: @Composable (PaddingValues) -> Unit,
 ) {
+    val mode = navigationMode(window)
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(NovaColors.Background),
     ) {
-        when (navigationMode(window)) {
-            NovaNavMode.Bottom -> {
-                val barHeight = BottomBarHeight
-                Column(Modifier.fillMaxSize()) {
-                    Box(Modifier.weight(1f)) {
-                        content(
-                            PaddingValues(
-                                start = 0.dp,
-                                top = 0.dp,
-                                end = 0.dp,
-                                bottom = barHeight,
-                            ),
-                        )
-                    }
-                    BottomTabBar(
-                        tabs = tabs,
-                        selected = selected,
-                        onSelect = onSelect,
-                        barHeight = barHeight,
-                    )
-                }
-            }
+        // İçerik: her iki modda da tam pencere. Boşluk yalnız aşağıda verilir.
+        Box(Modifier.fillMaxSize()) {
+            content(
+                when (mode) {
+                    NovaNavMode.Bottom -> PaddingValues(bottom = BottomBarHeight)
+                    NovaNavMode.Rail -> PaddingValues(start = RailWidth)
+                },
+            )
+        }
+        when (mode) {
+            NovaNavMode.Bottom -> BottomTabBar(
+                tabs = tabs,
+                selected = selected,
+                onSelect = onSelect,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
 
-            NovaNavMode.Rail -> {
-                val railWidth = RailWidth
-                Row(Modifier.fillMaxSize()) {
-                    NovaRail(tabs = tabs, selected = selected, onSelect = onSelect)
-                    Box(Modifier.weight(1f)) {
-                        content(
-                            PaddingValues(
-                                start = railWidth,
-                                top = 0.dp,
-                                end = 0.dp,
-                                bottom = 0.dp,
-                            ),
-                        )
-                    }
-                }
-            }
+            NovaNavMode.Rail -> NovaRail(
+                tabs = tabs,
+                selected = selected,
+                onSelect = onSelect,
+                modifier = Modifier.align(Alignment.CenterStart),
+            )
         }
     }
 }
@@ -153,12 +150,12 @@ private fun BottomTabBar(
     tabs: List<NovaTab>,
     selected: String,
     onSelect: (String) -> Unit,
-    barHeight: Dp,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(barHeight)
+            .height(BottomBarHeight)
             .background(NovaColors.BackgroundRaised)
             .testTag("nova-bottom-bar"),
     ) {
@@ -212,9 +209,10 @@ private fun NovaRail(
     tabs: List<NovaTab>,
     selected: String,
     onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .width(RailWidth)
             .fillMaxHeight()
             .background(NovaColors.BackgroundRaised)
@@ -316,10 +314,8 @@ private fun TabSurface(
             .heightIn(min = minHeight)
             .widthIn(min = 48.dp)
             .onFocusChanged { focused = it.isFocused }
-            .semantics {
-                this.selected = selected
-                contentDescription = tab.label
-            }
+            // Etiketi görünür `Text` sağlıyor; burada tekrar okunmasın.
+            .semantics { this.selected = selected }
             .testTag(tab.testTag),
     ) {
         if (horizontal) {

@@ -26,6 +26,6 @@ class NovaScaffoldTest {
         assertEquals("playlists", tab.key)
         assertEquals("Oynatma Listeleri", tab.label)
         assertEquals("open-playlists", tab.testTag)
-        assertEquals(tab, tab.copy())
+        assertEquals(NovaTab("playlists", "Oynatma Listeleri", "open-playlists"), tab)
     }
 }
