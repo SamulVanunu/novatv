@@ -97,12 +97,18 @@ fun NovaPill(
     selected: Boolean = false,
     accent: Boolean = false,
     danger: Boolean = false,
+    /**
+     * Seçili ve dolgulu varyant: dokunmatik çip sıralarında kullanılır.
+     * `false` (varsayılan) bugünkü TV görünümünü aynen korur.
+     */
+    filled: Boolean = false,
     enabled: Boolean = true,
     testTag: String? = null,
 ) {
     val shape = RoundedCornerShape(50)
     val idleContainer = when {
         !enabled -> Color.Transparent
+        filled && selected -> NovaColors.Focus
         accent -> NovaColors.Accent.copy(alpha = 0.10f)
         selected -> NovaColors.Focus.copy(alpha = 0.07f)
         danger -> NovaColors.Danger.copy(alpha = 0.10f)
@@ -110,6 +116,7 @@ fun NovaPill(
     }
     val idleContent = when {
         !enabled -> NovaColors.TextDim
+        filled && selected -> NovaColors.FocusInk
         accent -> NovaColors.Accent
         selected -> NovaColors.Focus
         danger -> NovaColors.Danger
@@ -117,6 +124,7 @@ fun NovaPill(
     }
     val idleBorder = when {
         !enabled -> NovaColors.Border.copy(alpha = 0.5f)
+        filled && selected -> NovaColors.Focus
         accent -> NovaColors.Accent.copy(alpha = 0.45f)
         danger -> NovaColors.Danger.copy(alpha = 0.5f)
         selected -> NovaColors.Focus.copy(alpha = 0.55f)

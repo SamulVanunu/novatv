@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -487,50 +486,95 @@ private fun LiveHeader(
 }
 
 /**
- * Boş durum metni; TV ve kompakt aynı metni gösterir.
+ * Boş durumun hangi metni göstereceği: saf karar, test edilebilir.
  *
- * [focusRequester] yalnız TV'de dolu: kompakt yol odak istemez, bu yüzden
- * `null` geçer. Geniş yazı sütunu verilen genişliği aşmaz.
+ * [query] boş değilse arama süzgeci kaynak yokluğundan önce gelir — telefonda
+ * arama alanı her zaman görünür, boş sonuç "kaynak ekle" dememeli.
+ * [noSource] yalnız `null`ken kaynak pili çizilmez; `false` bugünkü TV
+ * davranışını (Kaynaklar pili) korur.
+ */
+internal fun emptyStateContent(
+    noSource: Boolean,
+    favoritesOnly: Boolean,
+    query: String,
+): EmptyStateContent = when {
+    query.isNotBlank() -> EmptyStateContent(
+        title = "«$query» için kanal yok",
+        body = "Farklı bir kelimeyle arayın veya aramayı temizleyin.",
+        action = EmptyStateAction.ClearQuery,
+    )
+    noSource -> EmptyStateContent(
+        title = "Henüz kanal yok",
+        body = "İzlemeye başlamak için bir Xtream, M3U veya Stalker kaynağı ekleyin.",
+        action = EmptyStateAction.OpenPlaylists,
+    )
+    favoritesOnly -> EmptyStateContent(
+        title = "Favori kanal yok",
+        body = "Kanalların üzerinde uzun basıp favorilere ekleyin.",
+        action = EmptyStateAction.None,
+    )
+    else -> EmptyStateContent(
+        title = "Bu grupta kanal yok",
+        body = "Başka bir grup seçin veya kaynaklarınızı yenileyin.",
+        action = EmptyStateAction.OpenPlaylists,
+    )
+}
+
+/** Boş durum metni ve altındaki tek eylem. */
+internal data class EmptyStateContent(
+    val title: String,
+    val body: String,
+    val action: EmptyStateAction,
+)
+
+/** Boş durum eylemi: kaynaklara git, aramayı temizle ya da eylem yok. */
+internal enum class EmptyStateAction { OpenPlaylists, ClearQuery, None }
+
+/**
+ * Boş durum metni.
+ *
+ * [noSource] `false` bugünkü TV metnini aynen çizer; `null` ise kaynak pilini
+ * hiç çizmez (kompakt yol kararını [emptyStateContent] verir ve pilini kendi
+ * çizer). [bodyModifier] yolu kendi yazı genişliğini seçer: TV sabit 520 dp,
+ * kompakt ekran genişliği. [focusRequester] yalnız TV'de dolu.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 internal fun EmptyState(
-    noSource: Boolean,
+    noSource: Boolean?,
     favoritesOnly: Boolean,
     focusRequester: FocusRequester? = null,
-    onOpenPlaylists: () -> Unit,
+    onOpenPlaylists: () -> Unit = {},
     modifier: Modifier = Modifier,
+    bodyModifier: Modifier = Modifier.width(520.dp),
 ) {
-    val title = when {
-        noSource -> "Henüz kanal yok"
-        favoritesOnly -> "Favori kanal yok"
-        else -> "Bu grupta kanal yok"
-    }
-    val body = when {
-        noSource -> "İzlemeye başlamak için bir Xtream, M3U veya Stalker kaynağı ekleyin."
-        favoritesOnly -> "Kanalların üzerinde uzun basıp favorilere ekleyin."
-        else -> "Başka bir grup seçin veya kaynaklarınızı yenileyin."
-    }
+    val content = emptyStateContent(
+        noSource = noSource != false,
+        favoritesOnly = favoritesOnly,
+        query = "",
+    )
     Column(
         modifier = modifier.fillMaxSize().padding(bottom = 40.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
         Text(
-            text = title,
+            text = content.title,
             style = NovaType.Display.copy(fontSize = 30.sp),
             textAlign = TextAlign.Center,
             modifier = Modifier.testTag("empty-state"),
         )
         Spacer(Modifier.height(10.dp))
         Text(
-            text = body,
+            text = content.body,
             style = NovaType.BodyMuted,
             textAlign = TextAlign.Center,
-            modifier = Modifier
-                .widthIn(max = 520.dp)
-                .padding(horizontal = 24.dp),
+            modifier = bodyModifier,
         )
+        if (noSource == null) {
+            // Kompakt yol: metin kararı ve pili burada değil çağıranda.
+            return@Column
+        }
         Spacer(Modifier.height(24.dp))
         NovaPill(
             label = if (noSource) "Kaynak ekle" else "Kaynaklar",

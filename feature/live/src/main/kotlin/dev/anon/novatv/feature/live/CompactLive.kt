@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -106,9 +107,11 @@ internal fun CompactLive(
             Spacer(Modifier.height(8.dp))
 
             // Hiç aktif kaynak yoksa paging akışı yüklenmez; spinner'da takılı
-            // kalmamak için boş durumu gruplardan anlarız.
+            // kalmamak için boş durumu gruplardan anlarız. Yükleme bitmeden
+            // "kaynak yok" demeyiz.
             val noGroups = state.groups.isEmpty()
-            val noSource = noGroups && channels.itemCount == 0
+            val noSource = noGroups && channels.itemCount == 0 &&
+                channels.loadState.refresh !is LoadState.Loading
             val loading = channels.loadState.refresh is LoadState.Loading
 
             when {
@@ -130,11 +133,14 @@ internal fun CompactLive(
                     }
                 }
 
-                // TV boş durumu; odak isteği yok, yalnız yazı genişliği daralır.
-                channels.itemCount == 0 -> EmptyState(
+                // Telefonda arama alanı hep görünür: boş sonuç "kaynak yok"
+                // değildir, metin ve eylem `emptyStateContent` ile ayrışır.
+                channels.itemCount == 0 -> CompactEmpty(
                     noSource = noSource,
                     favoritesOnly = state.favoritesOnly,
+                    query = state.query,
                     onOpenPlaylists = onOpenPlaylists,
+                    onClearQuery = { onQueryChange("") },
                     modifier = Modifier.weight(1f),
                 )
 
@@ -202,6 +208,73 @@ internal fun CompactLive(
                         .testTag("live-error"),
                 )
             }
+        }
+    }
+}
+
+/**
+ * Kompakt boş durum: metin [emptyStateContent]'ten, pil kararı buradan.
+ *
+ * Arama doluysa "Aramayı temizle"; kaynak yoksa "Kaynak ekle"; boş grup için
+ * "Kaynaklar"; favori süzgecinde pil yok.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun CompactEmpty(
+    noSource: Boolean,
+    favoritesOnly: Boolean,
+    query: String,
+    onOpenPlaylists: () -> Unit,
+    onClearQuery: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val content = emptyStateContent(
+        noSource = noSource,
+        favoritesOnly = favoritesOnly,
+        query = query,
+    )
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(bottom = 32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = content.title,
+            style = NovaType.Display.copy(fontSize = 26.sp),
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .padding(horizontal = 24.dp)
+                .testTag("empty-state"),
+        )
+        Spacer(Modifier.height(10.dp))
+        Text(
+            text = content.body,
+            style = NovaType.BodyMuted,
+            textAlign = TextAlign.Center,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+        )
+        if (content.action == EmptyStateAction.None) {
+            return@Column
+        }
+        Spacer(Modifier.height(24.dp))
+        if (content.action == EmptyStateAction.ClearQuery) {
+            NovaPill(
+                label = "Aramayı temizle",
+                onClick = onClearQuery,
+                accent = true,
+                testTag = "empty-clear-query",
+            )
+        } else {
+            NovaPill(
+                label = if (noSource) "Kaynak ekle" else "Kaynaklar",
+                onClick = onOpenPlaylists,
+                accent = true,
+                testTag = "empty-open-playlists",
+            )
         }
     }
 }
@@ -299,6 +372,7 @@ private fun GroupChips(
                 label = item.label,
                 onClick = { onSelectGroup(item.key.ifBlank { null }) },
                 selected = !favoritesOnly && item.key == selectedKey,
+                filled = true,
                 testTag = if (item.key.isEmpty()) "group-all" else "group-${item.key}",
             )
         }
@@ -307,6 +381,7 @@ private fun GroupChips(
                 label = if (favoritesOnly) "★ Favoriler" else "☆ Favoriler",
                 onClick = onToggleFavorites,
                 selected = favoritesOnly,
+                filled = true,
                 testTag = "toggle-favorites",
             )
         }
@@ -357,10 +432,11 @@ private fun CompactChannelRow(
                     .testTag("channel-$index"),
             ) {
                 Row(
+                    // Yükseklik dıştaki `heightIn(min = 56.dp)`ten gelir; burada
+                    // tekrarlanmaz, yalnız dikey dolgu ile font büyümesine yer kalır.
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 56.dp)
-                        .padding(start = 6.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                        .padding(start = 6.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     ChannelLogo(
