@@ -3,9 +3,13 @@ package dev.anon.novatv.mobile
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -89,17 +93,17 @@ private object MobileTabs {
     const val GUIDE = "guide"
     const val LIBRARY = "library"
     const val RECORDINGS = "recordings"
-    // "Daha fazla" ekranı gelene kadar Ayarlar'ı açar.
+    // "Daha" ekranı gelene kadar Ayarlar'ı açar.
     const val MORE = "more"
 }
 
-/** Beş sekme: Canlı, Rehber, Kütüphane, Kayıtlar, Daha fazla. */
+/** Beş sekme: Canlı, Rehber, Kütüphane, Kayıtlar, Daha. */
 private val Tabs = listOf(
     NovaTab(key = MobileTabs.LIVE, label = "Canlı", testTag = "tab-live"),
     NovaTab(key = MobileTabs.GUIDE, label = "Rehber", testTag = "tab-guide"),
     NovaTab(key = MobileTabs.LIBRARY, label = "Kütüphane", testTag = "tab-library"),
     NovaTab(key = MobileTabs.RECORDINGS, label = "Kayıtlar", testTag = "tab-recordings"),
-    NovaTab(key = MobileTabs.MORE, label = "Daha fazla", testTag = "tab-more"),
+    NovaTab(key = MobileTabs.MORE, label = "Daha", testTag = "tab-more"),
 )
 
 /**
@@ -124,32 +128,53 @@ fun MobileNavHost(graph: NovaGraph) {
     val entry by navController.currentBackStackEntryAsState()
     val selectedTab = tabForRoute(entry?.destination?.route)
 
+    // targetSdk 35 ile Android 15 kenardan kenara çizer: sistem çubukları
+    // içeriğin üstüne biner. Oynatıcılar dışında içerik ve kabuk güvenli
+    // alana yerleşir; oynatıcılar tam ekran kalır (video kenara ulaşmalı).
+    // Alt çubuğu `NovaScaffold` alt kenara hizalar; navigasyon çubuğu payı
+    // bir kez burada (kabuğun dışında) verilir, içerikte tekrarlanmaz.
+    val fullBleed = isFullBleedRoute(entry?.destination?.route)
+    val insets = WindowInsets.safeDrawing
+    val chromeModifier = if (fullBleed) {
+        Modifier.fillMaxSize()
+    } else {
+        Modifier
+            .fillMaxSize()
+            .windowInsetsPadding(insets)
+    }
+
     if (selectedTab != null) {
-        NovaScaffold(
-            window = window,
-            tabs = Tabs,
-            selected = selectedTab,
-            onSelect = navController::openTab,
-        ) { padding ->
+        // Alt çubuğun kendi payı `NovaScaffold`'tan gelir; navigasyon çubuğu
+        // inset'i yalnız kabuğa eklenir, içeriğe ikinci kez eklenmez.
+        Box(modifier = chromeModifier) {
+            NovaScaffold(
+                window = window,
+                tabs = Tabs,
+                selected = selectedTab,
+                onSelect = navController::openTab,
+            ) { padding ->
+                MobileGraph(
+                    graph = graph,
+                    navController = navController,
+                    appearance = appearance,
+                    channelResolver = channelResolver,
+                    parentalGuard = parentalGuard,
+                    // Sekme kökü: boşluk yalnız kabuktan gelir.
+                    contentModifier = Modifier.fillMaxSize().padding(padding),
+                )
+            }
+        }
+    } else {
+        Box(modifier = chromeModifier) {
             MobileGraph(
                 graph = graph,
                 navController = navController,
                 appearance = appearance,
                 channelResolver = channelResolver,
                 parentalGuard = parentalGuard,
-                // Sekme kökü: boşluk yalnız kabuktan gelir.
-                contentModifier = Modifier.fillMaxSize().padding(padding),
+                contentModifier = Modifier.fillMaxSize(),
             )
         }
-    } else {
-        MobileGraph(
-            graph = graph,
-            navController = navController,
-            appearance = appearance,
-            channelResolver = channelResolver,
-            parentalGuard = parentalGuard,
-            contentModifier = Modifier.fillMaxSize(),
-        )
     }
 
     ParentalGuardDialog(parentalGuard)
@@ -693,6 +718,18 @@ private class GraphChannelResolver(private val graph: NovaGraph) : ChannelStream
 
     override suspend fun resolveCatchup(channel: Channel, at: Instant, minutes: Int) =
         graph.streamResolver.resolveCatchupStream(channel, at, minutes)
+}
+
+/**
+ * Oynatıcı rotaları güvenli alanı aşar: video sistem çubuklarının altına
+ * kadar uzanır ve bu ekranlar zaten gezinme çubuğu çizmez.
+ */
+private fun isFullBleedRoute(route: String?): Boolean = when (route) {
+    PlayerRoutes.PATTERN,
+    VodPlayerRoutes.PATTERN,
+    RecordingPlayerRoutes.PATTERN,
+    -> true
+    else -> false
 }
 
 /** Rota → sekme eşlemesi; alt ekranlar (oynatıcı, detay, form) `null`. */

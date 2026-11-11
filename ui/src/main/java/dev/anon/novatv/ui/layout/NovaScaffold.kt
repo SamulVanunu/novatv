@@ -257,14 +257,23 @@ private fun TabGlyph(color: Color, alpha: Float = 0.75f) {
     )
 }
 
+/**
+ * Sekme etiketi: kendi öğesinin genişliğine sıkışır, taşmaz.
+ *
+ * Dar pencerede beş öğe ~82 dp'ye düşer; etiket sınırsız bırakılırsa komşu
+ * öğenin üstüne çizilir. `fillMaxWidth` + tek satır + ellipsis, metni
+ * bulunduğu yuvada tutar (dokunma hedefi yüksekliğine dokunulmaz).
+ */
 @Composable
-private fun TabLabel(text: String, color: Color, maxLines: Int) {
+private fun TabLabel(text: String, color: Color, maxLines: Int, modifier: Modifier = Modifier) {
     Text(
         text = text.uppercase(),
         style = NovaType.Label.copy(color = color),
         maxLines = maxLines,
+        softWrap = false,
         overflow = TextOverflow.Ellipsis,
         textAlign = TextAlign.Center,
+        modifier = modifier.fillMaxWidth(),
     )
 }
 
@@ -347,7 +356,9 @@ private fun TabSurface(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 6.dp),
+                    // Dar pencerede beş öğe ~82 dp: yatay payda en az yer,
+                    // yalnız komşu etiketle arası açılsın.
+                    .padding(horizontal = 2.dp, vertical = 6.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {

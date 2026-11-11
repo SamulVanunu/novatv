@@ -4,7 +4,12 @@ import android.app.Application
 import androidx.work.Configuration
 import dev.anon.novatv.core.sync.SyncWorkerFactory
 
-class NovaApplication : Application(), Configuration.Provider {
+/**
+ * İki uygulamanın paylaştığı Application: grafik, kayıt kurtarma ve
+ * WorkManager yapılandırması tek yerde. `open`: TV uygulaması doğrudan bu
+ * sınıfı, telefon uygulaması kendi `MobileApplication` alt sınıfını kullanır.
+ */
+open class NovaApplication : Application(), Configuration.Provider {
 
     val graph: NovaGraph by lazy { NovaGraph(this) }
 
