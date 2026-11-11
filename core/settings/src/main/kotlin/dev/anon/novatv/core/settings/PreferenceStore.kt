@@ -88,9 +88,19 @@ class PreferenceStore(private val dataStore: DataStore<Preferences>) {
         if (uri.isNullOrBlank()) prefs.remove(RECORDING_FOLDER) else prefs[RECORDING_FOLDER] = uri
     }
 
+    /**
+     * Yedeğe giren değerler: yalnız görünüm ve oynatma tercihleri.
+     *
+     * `BackupManager.applySettings` tam olarak bu anahtarları geri yazar.
+     * Cihaza bağlı olanlar bilerek dışarıda: `recording_folder` bir SAF ağaç
+     * URI'i (başka cihazda anlamsız), `epg_last_sync_<playlistId>` kaynak
+     * kimliği taşır, `active_profile_id` profil listesiyle birlikte anlam
+     * kazanır. Tüm tercihleri yazmak, geri yüklemenin hiç okumadığı veriyi
+     * dosyaya taşıyordu.
+     */
     suspend fun exportValues(): Map<String, String> =
         dataStore.data.map { prefs ->
-            prefs.asMap().mapNotNull { (key, value) ->
+            prefs.asMap().filterKeys { it in BACKUP_KEYS }.mapNotNull { (key, value) ->
                 val text = when (value) {
                     is Boolean, is Int, is Long, is Float, is String -> value.toString()
                     else -> null
@@ -101,6 +111,7 @@ class PreferenceStore(private val dataStore: DataStore<Preferences>) {
 
     companion object {
         const val DEFAULT_PROFILE_ID = 1L
+
         private val ACTIVE_PROFILE = longPreferencesKey("active_profile_id")
         private val LIVE_GRID = booleanPreferencesKey("live_grid")
         private val PLAYER_BUFFER_SECONDS = intPreferencesKey("player_buffer_seconds")
@@ -114,6 +125,24 @@ class PreferenceStore(private val dataStore: DataStore<Preferences>) {
         private val AUTO_START = booleanPreferencesKey("system_auto_start")
         private val SLEEP_MINUTES = intPreferencesKey("system_sleep_minutes")
         private val RECORDING_FOLDER = androidx.datastore.preferences.core.stringPreferencesKey("recording_folder")
+
+        /**
+         * Yedeğe giren anahtarlar; `BackupManager.applySettings` bu kümenin
+         * tamamını geri yazar. Anahtarlardan sonra tanımlanır ki başlatma
+         * sırasında null'a düşmesin.
+         */
+        private val BACKUP_KEYS: Set<androidx.datastore.preferences.core.Preferences.Key<*>> =
+            setOf(
+                DARK_THEME,
+                ACCENT,
+                TYPE_SCALE,
+                CLOCK_24H,
+                EPG_ROW_HEIGHT,
+                EPG_WINDOW_DAYS,
+                AUTO_FRAME_RATE,
+                AUTO_START,
+                SLEEP_MINUTES,
+            )
 
         fun create(context: Context): PreferenceStore =
             PreferenceStore(context.applicationContext.novaPreferences)
