@@ -290,6 +290,7 @@ private fun MobileGraph(
                 },
                 onToggleReminder = viewModel::toggleReminder,
                 onToggleRecording = viewModel::toggleRecording,
+                window = rememberNovaWindow(),
             )
         }
 

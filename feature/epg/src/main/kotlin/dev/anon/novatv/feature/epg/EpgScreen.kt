@@ -60,6 +60,7 @@ import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPanel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 import java.time.Instant
@@ -84,6 +85,9 @@ private val DP_PER_MINUTE = HOUR_WIDTH.value / 60f
  * Tek bir yatay kaydırma durumu tüm satırlarda paylaşılır; saat şeridi ve
  * program blokları birlikte kayar. Dikeyde `LazyColumn` sanallaştırır, böylece
  * binlerce kanallı listelerde bile kumanda gecikmez.
+ *
+ * [window] `NovaWindow.Expanded` değilken (telefon/tablet) ızgara yerine
+ * [CompactEpg] çizilir; TV yolu değişmez.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -96,8 +100,26 @@ fun EpgScreen(
     onWatchCatchup: (Channel, EpgProgram) -> Unit,
     onToggleReminder: (Channel, EpgProgram) -> Unit,
     onToggleRecording: (Channel, EpgProgram) -> Unit = { _, _ -> },
+    window: NovaWindow = NovaWindow.Expanded,
     modifier: Modifier = Modifier,
 ) {
+    // Dar pencere: 94 dp'lik ızgara telefonda okunmaz, şimdi/sıradaki listesi
+    // açılır. Geri kalan tüm kod yalnız Expanded'da çalışır.
+    if (window != NovaWindow.Expanded) {
+        CompactEpg(
+            state = state,
+            onSelectDay = onSelectDay,
+            onRefresh = onRefresh,
+            onBack = onBack,
+            onWatchChannel = onWatchChannel,
+            onWatchCatchup = onWatchCatchup,
+            onToggleReminder = onToggleReminder,
+            onToggleRecording = onToggleRecording,
+            modifier = modifier,
+        )
+        return
+    }
+
     val density = LocalDensity.current
     val from = remember(state.dayOffset) { dayStart(state.dayOffset) }
     val scroll = remember(state.dayOffset) { ScrollState(0) }
