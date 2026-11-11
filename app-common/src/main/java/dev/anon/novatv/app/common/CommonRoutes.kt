@@ -26,12 +26,6 @@ import kotlinx.coroutines.delay
  */
 object Routes {
     const val LIVE = "live"
-
-    /**
-     * "Daha" menüsü. Telefon kabuğu bu rotayı açar; TV uygulaması rotayı
-     * kaydetmez, sabitin varlığı sabit bir `when` dalını etkilemez.
-     */
-    const val MORE = "more"
 }
 
 /** Seçilen dosyanın uzantısına göre Media3 altyazı MIME türü. */
