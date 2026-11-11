@@ -1,0 +1,81 @@
+package dev.anon.novatv.mobile
+
+import android.content.res.Configuration
+import android.os.Build
+import android.os.Bundle
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.annotation.RequiresApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.tv.material3.ExperimentalTvMaterial3Api
+import androidx.tv.material3.MaterialTheme
+import dev.anon.novatv.app.common.NovaApplication
+import dev.anon.novatv.app.common.NovaGraph
+import dev.anon.novatv.core.settings.Appearance
+import dev.anon.novatv.feature.player.PlayerPip
+import dev.anon.novatv.feature.player.enterPlayerPictureInPicture
+import dev.anon.novatv.ui.theme.NovaTheme
+
+/**
+ * Telefon uygulamasının tek etkinliği. TV'deki `MainActivity` ile aynı tema,
+ * görünüm ve PiP davranışını taşır; yalnız kabuk farklı: `MobileNavHost`.
+ */
+class MobileMainActivity : ComponentActivity() {
+
+    private val graph: NovaGraph
+        get() = (application as NovaApplication).graph
+
+    @OptIn(ExperimentalTvMaterial3Api::class)
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            val appearance by graph.preferences.appearance.collectAsStateWithLifecycle(
+                initialValue = Appearance(),
+            )
+            NovaTheme(
+                dark = appearance.dark,
+                typeScale = appearance.typeScale,
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background),
+                ) {
+                    MobileNavHost(graph)
+                }
+            }
+        }
+    }
+
+    /**
+     * API 26–30'da otomatik PiP yok: kullanıcı HOME'a bastığında oynatıcı
+     * ekrandaysa küçük pencereye geç. API 31+ bunu kendisi yapar.
+     */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (Build.VERSION.SDK_INT in Build.VERSION_CODES.O until Build.VERSION_CODES.S &&
+            PlayerPip.active && PlayerPip.playing
+        ) {
+            enterPlayerPictureInPicture()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration,
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        PlayerPip.setInPip(isInPictureInPictureMode)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        PlayerPip.setInPip(false)
+    }
+}
