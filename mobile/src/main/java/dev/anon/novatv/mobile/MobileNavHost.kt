@@ -78,6 +78,7 @@ import dev.anon.novatv.feature.settings.SettingsRoutes
 import dev.anon.novatv.feature.settings.SettingsScreen
 import dev.anon.novatv.feature.settings.SettingsViewModel
 import dev.anon.novatv.ui.layout.NovaScaffold
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.layout.NovaTab
 import dev.anon.novatv.ui.layout.rememberNovaWindow
 import java.io.File
@@ -188,6 +189,7 @@ fun MobileNavHost(graph: NovaGraph) {
                     parentalGuard = parentalGuard,
                     // Sekme kökü: boşluk yalnız kabuktan gelir.
                     contentModifier = Modifier.fillMaxSize().padding(padding),
+                    window = window,
                 )
             }
         }
@@ -200,6 +202,7 @@ fun MobileNavHost(graph: NovaGraph) {
                 channelResolver = channelResolver,
                 parentalGuard = parentalGuard,
                 contentModifier = Modifier.fillMaxSize(),
+                window = window,
             )
         }
     }
@@ -215,6 +218,7 @@ private fun MobileGraph(
     channelResolver: ChannelStreamResolver,
     parentalGuard: ParentalGuardState,
     contentModifier: Modifier,
+    window: NovaWindow,
 ) {
     NavHost(navController = navController, startDestination = Routes.LIVE) {
         composable(Routes.LIVE) {
@@ -240,7 +244,13 @@ private fun MobileGraph(
                 onOpenGuide = { navController.navigate(EpgRoutes.of()) },
                 onOpenLibrary = { navController.navigate(LibraryRoutes.ROUTE) },
                 onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
-                onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
+                // Telefonda iki kutu çizilir; dörtlü düzen tablet/televizyonda
+                // anlamlı. Açılışta kullanıcıyı çizilemeyen bir düzenle
+                // karşılamamak için sınıfa göre seçilir.
+                onOpenMultiwall = {
+                    val panes = if (window == NovaWindow.Expanded) 4 else 2
+                    navController.navigate(MultiWallRoutes.of(panes))
+                },
                 onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                 onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
                 modifier = contentModifier,
@@ -380,7 +390,7 @@ private fun MobileGraph(
                 onAssign = viewModel::assign,
                 onClear = viewModel::clearPane,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -404,7 +414,7 @@ private fun MobileGraph(
                 onDelete = viewModel::delete,
                 onRefresh = viewModel::refresh,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 

@@ -112,7 +112,7 @@ internal fun CompactMultiWall(
 
                 if (state.layout == 4) {
                     Spacer(Modifier.height(spacing.gap))
-                    NovaBadge(text = "Telefonda küçük", color = NovaColors.Warning)
+                    NovaBadge(text = "Telefonda iki kutu", color = NovaColors.Warning)
                 }
 
                 Spacer(Modifier.height(spacing.gap))
@@ -237,7 +237,10 @@ private fun CompactPane(
                 NovaPill(
                     label = "Kanalı kaldır",
                     onClick = { onClear(index) },
-                    modifier = Modifier.align(Alignment.BottomEnd).padding(spacing.gap),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(spacing.gap)
+                        .heightIn(min = 48.dp),
                     testTag = "multiwall-clear-$index",
                 )
             }

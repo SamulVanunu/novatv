@@ -1,6 +1,7 @@
 package dev.anon.novatv.feature.multiwall
 
 import dev.anon.novatv.core.model.Channel
+import dev.anon.novatv.ui.layout.NovaWindow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -50,5 +51,14 @@ class MultiWallStateTest {
         val state = MultiWallUiState(streams = listOf(stream))
         assertEquals(stream, state.streamOf(1))
         assertNull(state.streamOf(0))
+    }
+
+    @Test
+    fun compactDrawsAtMostTwoPanes() {
+        assertEquals(2, paneLimitFor(NovaWindow.Compact, 4))
+        assertEquals(2, paneLimitFor(NovaWindow.Medium, 4))
+        assertEquals(2, paneLimitFor(NovaWindow.Compact, 2))
+        assertEquals(4, paneLimitFor(NovaWindow.Expanded, 4))
+        assertEquals(2, paneLimitFor(NovaWindow.Expanded, 2))
     }
 }

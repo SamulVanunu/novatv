@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -94,11 +96,7 @@ fun MultiWallScreen(
 
     // Kompakta yalnız çizilen kutular hazırlanır: telefonda 4'lü düzenle bile
     // ekranda iki kutu var, üçüncüsü/dördüncüsü akış boşa açmasın.
-    val paneLimit = if (window == NovaWindow.Expanded) {
-        state.visiblePanes
-    } else {
-        minOf(state.visiblePanes, 2)
-    }
+    val paneLimit = paneLimitFor(window, state.visiblePanes)
 
     LaunchedEffect(state.streams, state.layout, paneLimit) {
         controllers.forEachIndexed { index, controller ->
@@ -112,6 +110,12 @@ fun MultiWallScreen(
                 prepared[index] = stream.url
             }
         }
+    }
+
+    // Pencere daralınca çizilen kutu sayısı düşer; odak dışarıda kalırsa
+    // bütün kutular sessizleşir ve başlık görünmeyen kutuyu adlandırır.
+    LaunchedEffect(paneLimit) {
+        if (state.focused >= paneLimit) onFocus(0)
     }
 
     LaunchedEffect(state.focused, state.streams, state.layout, paneLimit) {
@@ -151,6 +155,7 @@ fun MultiWallScreen(
         ChannelPickerDialog(
             title = "Kutu ${pane + 1} · kanal",
             state = state,
+            touch = window != NovaWindow.Expanded,
             onQuery = onQuery,
             onSelect = { channel -> onAssign(pane, channel) },
             onClear = { onClear(pane) },
@@ -365,6 +370,7 @@ private fun ChannelPickerDialog(
     onSelect: (Channel) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
+    touch: Boolean = false,
 ) {
     val firstChannelFocus = remember { FocusRequester() }
     LaunchedEffect(state.channels) {
@@ -373,8 +379,11 @@ private fun ChannelPickerDialog(
         }
     }
 
+    // Panel sabit 520 dp: 411 dp telefonda pencere taşıyor, "Kapat" kırpılıyordu.
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val panelWidth = minOf(520.dp, screenWidth - 32.dp)
     Dialog(onDismissRequest = onDismiss) {
-        NovaPanel(width = 520.dp) {
+        NovaPanel(width = panelWidth) {
             NovaLabel(title)
             NovaTextFieldTheme {
                 OutlinedTextField(
@@ -403,6 +412,7 @@ private fun ChannelPickerDialog(
                         onClick = { onSelect(channel) },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier)
                             .then(
                                 if (index == 0) Modifier.focusRequester(firstChannelFocus)
                                 else Modifier,
@@ -413,11 +423,26 @@ private fun ChannelPickerDialog(
             }
             NovaRule(Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NovaPill(label = "Kutuyu boşalt", onClick = onClear, modifier = Modifier.weight(1f))
-                NovaPill(label = "Kapat", onClick = onDismiss, modifier = Modifier.weight(1f))
+                NovaPill(
+                    label = "Kutuyu boşalt",
+                    onClick = onClear,
+                    modifier = Modifier.weight(1f).then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier),
+                )
+                NovaPill(
+                    label = "Kapat",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier),
+                )
             }
         }
     }
 }
+
+/**
+ * Çizilen kutu sayısı. Telefonda dörtlü düzen seçilse bile iki kutu çizilir;
+ * açılmayan akışlar boşuna hazırlanmasın.
+ */
+internal fun paneLimitFor(window: NovaWindow, visiblePanes: Int): Int =
+    if (window == NovaWindow.Expanded) visiblePanes else minOf(visiblePanes, 2)
 
 private const val LOW_BUFFER_MS = 8_000
