@@ -224,6 +224,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onBack = {
                     if (!navController.popBackStack()) navController.navigate(Routes.LIVE)
                 },
+                window = NovaWindow.Expanded,
             )
         }
 
@@ -246,6 +247,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 },
                 onToggleFavorite = viewModel::toggleFavorite,
                 onBack = { navController.popBackStack() },
+                window = NovaWindow.Expanded,
             )
         }
 

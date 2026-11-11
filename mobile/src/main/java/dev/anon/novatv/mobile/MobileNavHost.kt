@@ -333,6 +333,7 @@ private fun MobileGraph(
                 },
                 onToggleFavorite = viewModel::toggleFavorite,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
+                window = rememberNovaWindow(),
             )
         }
 
@@ -355,6 +356,7 @@ private fun MobileGraph(
                 },
                 onToggleFavorite = viewModel::toggleFavorite,
                 onBack = { navController.popBackStack() },
+                window = rememberNovaWindow(),
             )
         }
 

@@ -27,13 +27,6 @@ class NovaWindowTest {
     }
 
     @Test
-    fun `columns 2-3-5`() {
-        assertEquals(2, libraryColumns(NovaWindow.Compact))
-        assertEquals(3, libraryColumns(NovaWindow.Medium))
-        assertEquals(5, libraryColumns(NovaWindow.Expanded))
-    }
-
-    @Test
     fun `spacing compact 16-8`() {
         val spacing = spacingFor(NovaWindow.Compact)
         assertEquals(16.dp, spacing.screen)

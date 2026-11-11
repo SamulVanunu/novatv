@@ -1,5 +1,7 @@
 package dev.anon.novatv.feature.library
 
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.OnBackPressedDispatcherOwner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,9 +26,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,11 +65,19 @@ import dev.anon.novatv.ui.component.NovaPanel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 import dev.anon.novatv.ui.theme.NovaType
 import dev.anon.novatv.ui.theme.novaTextFieldColors
 
+/**
+ * Kütüphane: film ve dizi ızgarası, filtreler, arama ve film detayı.
+ *
+ * [window] `Expanded` iken — TV — bugünkü geniş düzen çizilir, bir piksel
+ * değişmez. Diğer sınıflarda kompakt düzen kullanılır: `CompactLibraryBody`
+ * ve film detayında `Dialog` yerine tam sayfa `CompactMovieDetail`.
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun LibraryScreen(
@@ -83,11 +96,182 @@ fun LibraryScreen(
     onToggleFavorite: (Movie) -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    window: NovaWindow = NovaWindow.Expanded,
 ) {
     var selectedMovie by remember { mutableStateOf<Movie?>(null) }
     var genreDialog by remember { mutableStateOf(false) }
     var yearDialog by remember { mutableStateOf(false) }
 
+    // Film detayı bir navigasyon rotası değil, bu ekranın kendi durumudur; nav
+    // host onu bilmez. Geri tuşunu kütüphanenin geri çağrısından (Live'a dönüş)
+    // önce yakalamak için burada `enabled` durumuyla bir geri yakalayıcı kurulur.
+    MovieDetailBackGuard(enabled = selectedMovie != null) { selectedMovie = null }
+
+    if (window == NovaWindow.Expanded) {
+        ExpandedLibrary(
+            state = state,
+            movies = movies,
+            series = series,
+            onSelectTab = onSelectTab,
+            onQueryChange = onQueryChange,
+            onGenreChange = onGenreChange,
+            onYearChange = onYearChange,
+            onClearFilters = onClearFilters,
+            onRefresh = onRefresh,
+            onPlayMovie = onPlayMovie,
+            onOpenSeries = onOpenSeries,
+            onContinue = onContinue,
+            onToggleFavorite = onToggleFavorite,
+            onBack = onBack,
+            onOpenGenre = { genreDialog = true },
+            onOpenYear = { yearDialog = true },
+            onSelectMovie = { selectedMovie = it },
+            modifier = modifier,
+        )
+    } else {
+        NovaBackground(modifier = modifier) {
+            CompactLibraryBody(
+                window = window,
+                state = state,
+                movies = movies,
+                series = series,
+                onSelectTab = onSelectTab,
+                onQueryChange = onQueryChange,
+                onGenreChange = onGenreChange,
+                onYearChange = onYearChange,
+                onClearFilters = onClearFilters,
+                onRefresh = onRefresh,
+                onOpenGenre = { genreDialog = true },
+                onOpenYear = { yearDialog = true },
+                onPlayMovie = onPlayMovie,
+                onOpenSeries = onOpenSeries,
+                onContinue = onContinue,
+                onBack = onBack,
+            )
+        }
+    }
+
+    selectedMovie?.let { movie ->
+        if (window == NovaWindow.Expanded) {
+            MovieDialog(
+                movie = movie,
+                favorite = movie.id in state.favoriteIds,
+                onPlay = {
+                    selectedMovie = null
+                    onPlayMovie(movie)
+                },
+                onFavorite = { onToggleFavorite(movie) },
+                onDismiss = { selectedMovie = null },
+            )
+        } else {
+            NovaBackground {
+                CompactMovieDetail(
+                    movie = movie,
+                    favorite = movie.id in state.favoriteIds,
+                    onPlay = {
+                        selectedMovie = null
+                        onPlayMovie(movie)
+                    },
+                    onFavorite = { onToggleFavorite(movie) },
+                    onDismiss = { selectedMovie = null },
+                )
+            }
+        }
+    }
+
+    if (genreDialog) {
+        ValueDialog(
+            title = "Tür",
+            values = listOf<String?>(null) + state.genres,
+            label = { it ?: "Tümü" },
+            selected = state.genre,
+            onSelect = {
+                onGenreChange(it)
+                genreDialog = false
+            },
+            onDismiss = { genreDialog = false },
+        )
+    }
+
+    if (yearDialog) {
+        ValueDialog(
+            title = "Yıl",
+            values = listOf<Int?>(null) + state.years,
+            label = { it?.toString() ?: "Tümü" },
+            selected = state.year,
+            onSelect = {
+                onYearChange(it)
+                yearDialog = false
+            },
+            onDismiss = { yearDialog = false },
+        )
+    }
+}
+
+/**
+ * Film detayı açıkken sistem Geri'sini tüketen yakalayıcı.
+ *
+ * Yakalayıcı, [OnBackPressedDispatcher]'a kompozisyona giriş anında eklenir,
+ * [DisposableEffect] ile ayrılırken düşer. `androidx.activity.compose.BackHandler`
+ * kullanılmadı: o yardımcı yakalayıcıyı yaşam döngüsünün RESUME durumuna bağlar
+ * ve yeniden etkinleşirken sırayı değiştirebilir; burada sıra yalnız
+ * giriş/çıkışla kurulmalı (aşağıda).
+ *
+ * Öncelik: gönderici **en son eklenen etkin** yakalayıcıyı önce çalıştırır.
+ * Nav host'un sekme geri çağrısı ekrandan önce kurulduğu için derinlik
+ * sırasında altta kalır; bu yakalayıcı detay açılırken üste eklenir, kapanınca
+ * düşer. Yaşam döngüsüne bağlanmıyoruz: o durumda ekran RESUME'a dönerken
+ * yeniden etkin olup sırada öne geçebilir ve detay kapalıyken bile nav host'un
+ * sekme/geri davranışını gölgeleyebilirdi. Yalnız giriş/çıkışla bağlamak
+ * sırayı kesin tutar.
+ */
+@Composable
+private fun MovieDetailBackGuard(enabled: Boolean, onClose: () -> Unit) {
+    val owner = LocalView.current.context.findBackOwner()
+    val close by rememberUpdatedState(onClose)
+    val dispatcher = owner?.onBackPressedDispatcher
+    DisposableEffect(dispatcher, enabled) {
+        if (dispatcher == null || !enabled) return@DisposableEffect onDispose {}
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                close()
+            }
+        }
+        dispatcher.addCallback(callback)
+        onDispose { callback.remove() }
+    }
+}
+
+/** Compose bağlamında geri göndericisi sahibi; Etkinlik ya da konak. */
+private fun android.content.Context.findBackOwner(): OnBackPressedDispatcherOwner? = when (this) {
+    is OnBackPressedDispatcherOwner -> this
+    is android.content.ContextWrapper -> baseContext.findBackOwner()
+    else -> null
+}
+
+/** Geniş düzen — TV: bugünkü kütüphane, değişmeden. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ExpandedLibrary(
+    state: LibraryUiState,
+    movies: LazyPagingItems<Movie>,
+    series: LazyPagingItems<Series>,
+    onSelectTab: (LibraryTab) -> Unit,
+    onQueryChange: (String) -> Unit,
+    onGenreChange: (String?) -> Unit,
+    onYearChange: (Int?) -> Unit,
+    onClearFilters: () -> Unit,
+    onRefresh: () -> Unit,
+    onPlayMovie: (Movie) -> Unit,
+    onOpenSeries: (Series) -> Unit,
+    onContinue: (ContinueItem) -> Unit,
+    onToggleFavorite: (Movie) -> Unit,
+    onBack: () -> Unit,
+    onOpenGenre: () -> Unit,
+    onOpenYear: () -> Unit,
+    onSelectMovie: (Movie) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     NovaBackground(modifier = modifier) {
         Column(
             modifier = Modifier
@@ -98,8 +282,8 @@ fun LibraryScreen(
                 state = state,
                 onSelectTab = onSelectTab,
                 onQueryChange = onQueryChange,
-                onOpenGenre = { genreDialog = true },
-                onOpenYear = { yearDialog = true },
+                onOpenGenre = onOpenGenre,
+                onOpenYear = onOpenYear,
                 onClearFilters = onClearFilters,
                 onRefresh = onRefresh,
                 onBack = onBack,
@@ -150,7 +334,7 @@ fun LibraryScreen(
                             subtitle = movie.year?.toString(),
                             imageUrl = movie.posterUrl,
                             favorite = movie.id in state.favoriteIds,
-                            onClick = { selectedMovie = movie },
+                            onClick = { onSelectMovie(movie) },
                         )
                     }
                 }
@@ -182,47 +366,6 @@ fun LibraryScreen(
                 )
             }
         }
-    }
-
-    selectedMovie?.let { movie ->
-        MovieDialog(
-            movie = movie,
-            favorite = movie.id in state.favoriteIds,
-            onPlay = {
-                selectedMovie = null
-                onPlayMovie(movie)
-            },
-            onFavorite = { onToggleFavorite(movie) },
-            onDismiss = { selectedMovie = null },
-        )
-    }
-
-    if (genreDialog) {
-        ValueDialog(
-            title = "Tür",
-            values = listOf<String?>(null) + state.genres,
-            label = { it ?: "Tümü" },
-            selected = state.genre,
-            onSelect = {
-                onGenreChange(it)
-                genreDialog = false
-            },
-            onDismiss = { genreDialog = false },
-        )
-    }
-
-    if (yearDialog) {
-        ValueDialog(
-            title = "Yıl",
-            values = listOf<Int?>(null) + state.years,
-            label = { it?.toString() ?: "Tümü" },
-            selected = state.year,
-            onSelect = {
-                onYearChange(it)
-                yearDialog = false
-            },
-            onDismiss = { yearDialog = false },
-        )
     }
 }
 

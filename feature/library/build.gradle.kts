@@ -44,6 +44,10 @@ dependencies {
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.paging.compose)
+    // Sistem Geri'si: `androidx.activity.compose.BackHandler` bu modüle
+    // geçmiyor; `activity-compose` zaten graf üzerinden geliyor, burada
+    // yalnız platform `OnBackPressedDispatcher` API'sinin görünmesi için.
+    implementation(libs.androidx.activity.compose)
     implementation(libs.coil.compose)
     implementation(libs.coil.network.okhttp)
     implementation(libs.kotlinx.coroutines.android)

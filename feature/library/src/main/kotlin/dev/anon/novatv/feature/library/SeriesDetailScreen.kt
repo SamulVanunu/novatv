@@ -28,9 +28,17 @@ import dev.anon.novatv.ui.component.NovaBadge
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 
+/**
+ * Dizi detayı: künye, sezon sekmeleri ve bölümler.
+ *
+ * [window] `Expanded` iken — TV — bugünkü geniş düzen çizilir. Diğer
+ * sınıflarda kompakt düzen (`CompactSeriesDetail`) kullanılır: sezonlar
+ * yatay kaydırılan şerit, bölümler tek sütun ve her satır dokununca oynatır.
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun SeriesDetailScreen(
@@ -40,7 +48,21 @@ fun SeriesDetailScreen(
     onToggleFavorite: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    window: NovaWindow = NovaWindow.Expanded,
 ) {
+    if (window != NovaWindow.Expanded) {
+        NovaBackground(modifier = modifier) {
+            CompactSeriesDetail(
+                state = state,
+                onSelectSeason = onSelectSeason,
+                onPlayEpisode = onPlayEpisode,
+                onToggleFavorite = onToggleFavorite,
+                onBack = onBack,
+            )
+        }
+        return
+    }
+
     NovaBackground(modifier = modifier) {
         Column(
             modifier = Modifier
