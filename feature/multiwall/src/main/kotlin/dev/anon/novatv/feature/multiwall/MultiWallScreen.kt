@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -32,6 +33,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -51,6 +53,7 @@ import dev.anon.novatv.ui.component.NovaPanel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 import dev.anon.novatv.ui.theme.NovaType
@@ -60,6 +63,9 @@ import dev.anon.novatv.ui.theme.novaTextFieldColors
  * 2 veya 4 kanalı aynı anda gösterir; ses yalnızca odaktaki kutudadır.
  * D-pad: yön tuşları kutular arasında gezer, OK odaktaki kutunun kanal
  * seçicisini açar, Geri ekranı kapatır.
+ *
+ * Pencere sınıfı düzeni seçer: `Expanded` TV'deki yatay/dikey ızgarayı,
+ * dar sınıflar [CompactMultiWall] ile iki üst üste kutuyu çizer.
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
@@ -73,6 +79,7 @@ fun MultiWallScreen(
     onAssign: (Int, Channel) -> Unit,
     onClear: (Int) -> Unit,
     onBack: () -> Unit,
+    window: NovaWindow = NovaWindow.Expanded,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -87,10 +94,14 @@ fun MultiWallScreen(
         onDispose { controllers.forEach { runCatching { it.release() } } }
     }
 
-    LaunchedEffect(state.streams, state.layout) {
+    // Kompakta yalnız çizilen kutular hazırlanır: telefonda 4'lü düzenle bile
+    // ekranda iki kutu var, üçüncüsü/dördüncüsü akış boşa açmasın.
+    val paneLimit = paneLimitFor(window, state.visiblePanes)
+
+    LaunchedEffect(state.streams, state.layout, paneLimit) {
         controllers.forEachIndexed { index, controller ->
             val stream = state.streams.firstOrNull { it.pane == index }
-            if (stream == null || index >= state.visiblePanes) {
+            if (stream == null || index >= paneLimit) {
                 if (prepared.remove(index) != null) {
                     controller.pause()
                 }
@@ -101,15 +112,71 @@ fun MultiWallScreen(
         }
     }
 
-    LaunchedEffect(state.focused, state.streams, state.layout) {
+    // Pencere daralınca çizilen kutu sayısı düşer; odak dışarıda kalırsa
+    // bütün kutular sessizleşir ve başlık görünmeyen kutuyu adlandırır.
+    LaunchedEffect(paneLimit) {
+        if (state.focused >= paneLimit) onFocus(0)
+    }
+
+    LaunchedEffect(state.focused, state.streams, state.layout, paneLimit) {
         controllers.forEachIndexed { index, controller ->
             val audible = index == state.focused &&
-                index < state.visiblePanes &&
+                index < paneLimit &&
                 state.streams.any { it.pane == index }
             runCatching { controller.player.volume = if (audible) 1f else 0f }
         }
     }
 
+    when (window) {
+        NovaWindow.Expanded -> TvMultiWall(
+            state = state,
+            controllers = controllers,
+            onLayout = onLayout,
+            onFocus = onFocus,
+            onOpenPicker = onOpenPicker,
+            onClear = onClear,
+            onBack = onBack,
+            modifier = modifier,
+        )
+
+        NovaWindow.Compact, NovaWindow.Medium -> CompactMultiWall(
+            state = state,
+            controllers = controllers,
+            onLayout = onLayout,
+            onFocus = onFocus,
+            onOpenPicker = onOpenPicker,
+            onClear = onClear,
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
+
+    state.pickerPane?.let { pane ->
+        ChannelPickerDialog(
+            title = "Kutu ${pane + 1} · kanal",
+            state = state,
+            touch = window != NovaWindow.Expanded,
+            onQuery = onQuery,
+            onSelect = { channel -> onAssign(pane, channel) },
+            onClear = { onClear(pane) },
+            onDismiss = onClosePicker,
+        )
+    }
+}
+
+/** TV gövdesi: 2'li düzen yatay, 4'lü düzen iki satır. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvMultiWall(
+    state: MultiWallUiState,
+    controllers: List<PlaybackController>,
+    onLayout: (Int) -> Unit,
+    onFocus: (Int) -> Unit,
+    onOpenPicker: (Int) -> Unit,
+    onClear: (Int) -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     NovaBackground(modifier = modifier) {
         Column(
             modifier = Modifier
@@ -203,17 +270,6 @@ fun MultiWallScreen(
                 )
             }
         }
-    }
-
-    state.pickerPane?.let { pane ->
-        ChannelPickerDialog(
-            title = "Kutu ${pane + 1} · kanal",
-            state = state,
-            onQuery = onQuery,
-            onSelect = { channel -> onAssign(pane, channel) },
-            onClear = { onClear(pane) },
-            onDismiss = onClosePicker,
-        )
     }
 }
 
@@ -314,6 +370,7 @@ private fun ChannelPickerDialog(
     onSelect: (Channel) -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
+    touch: Boolean = false,
 ) {
     val firstChannelFocus = remember { FocusRequester() }
     LaunchedEffect(state.channels) {
@@ -322,8 +379,11 @@ private fun ChannelPickerDialog(
         }
     }
 
+    // Panel sabit 520 dp: 411 dp telefonda pencere taşıyor, "Kapat" kırpılıyordu.
+    val screenWidth = LocalConfiguration.current.screenWidthDp.dp
+    val panelWidth = minOf(520.dp, screenWidth - 32.dp)
     Dialog(onDismissRequest = onDismiss) {
-        NovaPanel(width = 520.dp) {
+        NovaPanel(width = panelWidth) {
             NovaLabel(title)
             NovaTextFieldTheme {
                 OutlinedTextField(
@@ -352,6 +412,7 @@ private fun ChannelPickerDialog(
                         onClick = { onSelect(channel) },
                         modifier = Modifier
                             .fillMaxWidth()
+                            .then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier)
                             .then(
                                 if (index == 0) Modifier.focusRequester(firstChannelFocus)
                                 else Modifier,
@@ -362,11 +423,26 @@ private fun ChannelPickerDialog(
             }
             NovaRule(Modifier.fillMaxWidth())
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NovaPill(label = "Kutuyu boşalt", onClick = onClear, modifier = Modifier.weight(1f))
-                NovaPill(label = "Kapat", onClick = onDismiss, modifier = Modifier.weight(1f))
+                NovaPill(
+                    label = "Kutuyu boşalt",
+                    onClick = onClear,
+                    modifier = Modifier.weight(1f).then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier),
+                )
+                NovaPill(
+                    label = "Kapat",
+                    onClick = onDismiss,
+                    modifier = Modifier.weight(1f).then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier),
+                )
             }
         }
     }
 }
+
+/**
+ * Çizilen kutu sayısı. Telefonda dörtlü düzen seçilse bile iki kutu çizilir;
+ * açılmayan akışlar boşuna hazırlanmasın.
+ */
+internal fun paneLimitFor(window: NovaWindow, visiblePanes: Int): Int =
+    if (window == NovaWindow.Expanded) visiblePanes else minOf(visiblePanes, 2)
 
 private const val LOW_BUFFER_MS = 8_000

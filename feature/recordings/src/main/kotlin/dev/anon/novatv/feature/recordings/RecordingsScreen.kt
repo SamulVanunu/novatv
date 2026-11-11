@@ -31,14 +31,59 @@ import dev.anon.novatv.ui.component.NovaBadge
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 
-@OptIn(ExperimentalTvMaterial3Api::class)
+/**
+ * Kayıtlar ekranı: pencere sınıfına göre iki düzen.
+ *
+ * `Expanded` (TV) bugünün başlık satırını ve kart listesini birebir çizer;
+ * dar sınıflarda tek sütunlu [CompactRecordings] gelir.
+ */
 @Composable
 fun RecordingsScreen(
     state: RecordingsUiState,
     now: Long = System.currentTimeMillis(),
+    onPlay: (RecordingEntry) -> Unit,
+    onCancel: (RecordingEntry) -> Unit,
+    onDelete: (RecordingEntry) -> Unit,
+    onRefresh: () -> Unit,
+    onBack: () -> Unit,
+    window: NovaWindow = NovaWindow.Expanded,
+    modifier: Modifier = Modifier,
+) {
+    when (window) {
+        NovaWindow.Expanded -> TvRecordings(
+            state = state,
+            now = now,
+            onPlay = onPlay,
+            onCancel = onCancel,
+            onDelete = onDelete,
+            onRefresh = onRefresh,
+            onBack = onBack,
+            modifier = modifier,
+        )
+
+        NovaWindow.Compact, NovaWindow.Medium -> CompactRecordings(
+            state = state,
+            now = now,
+            onPlay = onPlay,
+            onCancel = onCancel,
+            onDelete = onDelete,
+            onRefresh = onRefresh,
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
+}
+
+/** TV gövdesi: başlık satırı, ayırıcı ve tek sütunlu kayıt listesi. */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvRecordings(
+    state: RecordingsUiState,
+    now: Long,
     onPlay: (RecordingEntry) -> Unit,
     onCancel: (RecordingEntry) -> Unit,
     onDelete: (RecordingEntry) -> Unit,
@@ -219,7 +264,7 @@ private fun RecordingRow(
     }
 }
 
-private fun statusColor(status: RecordingStatus) = when (status) {
+internal fun statusColor(status: RecordingStatus) = when (status) {
     RecordingStatus.RECORDING -> NovaColors.Live
     RecordingStatus.SCHEDULED -> NovaColors.Accent
     RecordingStatus.DONE -> NovaColors.Live

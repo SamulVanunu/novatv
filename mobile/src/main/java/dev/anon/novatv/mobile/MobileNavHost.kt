@@ -101,6 +101,7 @@ import dev.anon.novatv.ui.component.NovaPanel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaTapSurface
 import dev.anon.novatv.ui.layout.NovaScaffold
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.layout.NovaTab
 import dev.anon.novatv.ui.layout.rememberNovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
@@ -242,6 +243,7 @@ fun MobileNavHost(graph: NovaGraph) {
                     needsSourceOnboarding = needsSourceOnboarding(sourceCount),
                     // Sekme kökü: boşluk yalnız kabuktan gelir.
                     contentModifier = Modifier.fillMaxSize().padding(padding),
+                    window = window,
                 )
             }
         }
@@ -256,6 +258,7 @@ fun MobileNavHost(graph: NovaGraph) {
                 startRoute = startRoute,
                 needsSourceOnboarding = needsSourceOnboarding(sourceCount),
                 contentModifier = Modifier.fillMaxSize(),
+                window = window,
             )
         }
     }
@@ -273,6 +276,7 @@ private fun MobileGraph(
     startRoute: String,
     needsSourceOnboarding: Boolean,
     contentModifier: Modifier,
+    window: NovaWindow,
 ) {
     NavHost(navController = navController, startDestination = startRoute) {
         composable(Routes.LIVE) {
@@ -307,10 +311,13 @@ private fun MobileGraph(
                     onOpenGuide = { navController.navigate(EpgRoutes.of()) },
                     onOpenLibrary = { navController.navigate(LibraryRoutes.ROUTE) },
                     onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
-                    onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
+                    // Telefonda iki kutu çizilir; dörtlü düzen tablet/televizyonda
+                    // anlamlı. Açılışta kullanıcıyı çizilemeyen bir düzenle
+                    // karşılamamak için sınıfa göre seçilir.
+                    onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(panesFor(window))) },
                     onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                     onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
-                    window = rememberNovaWindow(),
+                    window = window,
                     modifier = Modifier.fillMaxSize(),
                 )
             }
@@ -346,7 +353,7 @@ private fun MobileGraph(
             }
             MobileMoreScreen(
                 onSearch = { navController.navigate(SettingsRoutes.SEARCH) },
-                onMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
+                onMultiwall = { navController.navigate(MultiWallRoutes.of(panesFor(window))) },
                 onSources = { navController.navigate(PlaylistsRoutes.LIST) },
                 onSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
                 onBackup = {
@@ -419,7 +426,7 @@ private fun MobileGraph(
                 },
                 onToggleReminder = viewModel::toggleReminder,
                 onToggleRecording = viewModel::toggleRecording,
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -461,7 +468,7 @@ private fun MobileGraph(
                 },
                 onToggleFavorite = viewModel::toggleFavorite,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -484,7 +491,7 @@ private fun MobileGraph(
                 },
                 onToggleFavorite = viewModel::toggleFavorite,
                 onBack = { navController.popBackStack() },
-                window = rememberNovaWindow(),
+                window = window,
             )
         }
 
@@ -512,6 +519,7 @@ private fun MobileGraph(
                 onAssign = viewModel::assign,
                 onClear = viewModel::clearPane,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
+                window = window,
             )
         }
 
@@ -535,6 +543,7 @@ private fun MobileGraph(
                 onDelete = viewModel::delete,
                 onRefresh = viewModel::refresh,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
+                window = window,
             )
         }
 
@@ -1063,6 +1072,12 @@ private fun tabForRoute(route: String?): String? = when (route) {
     SettingsRoutes.SETTINGS -> MobileTabs.MORE
     else -> null
 }
+
+/**
+ * Çoklu ekranda çizilecek kutu sayısı: telefonda iki, tablet/televizyonda dört.
+ */
+private fun panesFor(window: NovaWindow): Int =
+    if (window == NovaWindow.Expanded) 4 else 2
 
 /**
  * Sekme dokunuşu: standart alt gezinti deseni. Yığın her zaman
