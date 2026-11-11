@@ -226,7 +226,7 @@ fun PlayerScreen(
  */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun ChannelBanner(channel: Channel, modifier: Modifier = Modifier) {
+internal fun ChannelBanner(channel: Channel, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .background(NovaColors.Background.copy(alpha = 0.92f), RoundedCornerShape(10.dp))
@@ -266,7 +266,7 @@ private fun ChannelBanner(channel: Channel, modifier: Modifier = Modifier) {
 
 /** Donanım→yazılım geçişi gibi sessiz kalmaması gereken oynatıcı bildirimleri. */@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun NoticeBanner(message: String, modifier: Modifier = Modifier) {
+internal fun NoticeBanner(message: String, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier
             .background(NovaColors.Surface.copy(alpha = 0.94f), RoundedCornerShape(999.dp))
@@ -283,7 +283,7 @@ private fun NoticeBanner(message: String, modifier: Modifier = Modifier) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun PlaybackError(
+internal fun PlaybackError(
     reason: String,
     retryable: Boolean,
     retryFocusRequester: FocusRequester,
@@ -356,7 +356,7 @@ private fun PlaybackError(
     }
 }
 
-private fun buildPlayerView(context: Context, controller: PlaybackController): PlayerView =
+internal fun buildPlayerView(context: Context, controller: PlaybackController): PlayerView =
     PlayerView(context).apply {
         useController = false
         isFocusable = false
@@ -364,7 +364,7 @@ private fun buildPlayerView(context: Context, controller: PlaybackController): P
         player = controller.player
     }
 
-private fun VideoAspect.resizeMode(): Int = when (this) {
+internal fun VideoAspect.resizeMode(): Int = when (this) {
     VideoAspect.FIT, VideoAspect.RATIO_16_9, VideoAspect.RATIO_4_3, VideoAspect.ORIGINAL ->
         AspectRatioFrameLayout.RESIZE_MODE_FIT
 

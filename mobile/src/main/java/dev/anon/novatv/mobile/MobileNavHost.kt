@@ -446,6 +446,7 @@ private fun MobileGraph(
                 controller = controller,
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
+                touch = true,
             )
         }
 
@@ -544,6 +545,7 @@ private fun MobileGraph(
                 autoFrameRate = appearance.autoFrameRate,
                 // Oynatıcıyı açan sekmeye dön; ekran geri çağrısı zaten oradaki sekme köküne iner.
                 onBack = { navController.popBackStack() },
+                touch = true,
             )
         }
 
@@ -624,6 +626,7 @@ private fun MobileGraph(
                 autoFrameRate = appearance.autoFrameRate,
                 // Oynatıcıyı açan sekmeye dön.
                 onBack = { navController.popBackStack() },
+                touch = true,
             )
         }
 

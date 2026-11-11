@@ -268,7 +268,7 @@ private fun EpgSlot(label: String, value: String) {
 
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
-private fun TrackMenuDialog(
+internal fun TrackMenuDialog(
     title: String,
     choices: List<TrackChoice>,
     onSelect: (String?) -> Unit,
@@ -318,13 +318,13 @@ private fun TrackMenuDialog(
     }
 }
 
-private fun audioLabel(tracks: List<TrackChoice>): String =
+internal fun audioLabel(tracks: List<TrackChoice>): String =
     tracks.firstOrNull()?.label?.let { "Ses · $it" } ?: "Ses"
 
-private fun subtitleLabel(tracks: List<TrackChoice>): String =
+internal fun subtitleLabel(tracks: List<TrackChoice>): String =
     tracks.firstOrNull()?.label?.let { "Altyazı · $it" } ?: "Altyazı"
 
-private fun aspectLabel(state: PlayerUiState): String = when (state.aspect) {
+internal fun aspectLabel(state: PlayerUiState): String = when (state.aspect) {
     dev.anon.novatv.core.player.VideoAspect.FIT -> "Oran · Sığdır"
     dev.anon.novatv.core.player.VideoAspect.FILL -> "Oran · Doldur"
     dev.anon.novatv.core.player.VideoAspect.ZOOM -> "Oran · Kırp"

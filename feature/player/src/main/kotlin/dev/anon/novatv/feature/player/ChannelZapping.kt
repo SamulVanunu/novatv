@@ -19,3 +19,19 @@ fun channelStep(channels: List<Channel>, currentId: Long, delta: Int): Channel? 
     val target = ((index + delta) % size + size) % size
     return channels[target]
 }
+
+/**
+ * Kanal listesinden doğrudan seçim kararı.
+ *
+ * Zapping sırası ile kanal listesi aynı sırayı kullanır; seçimin yeniden yükleme
+ * tetikleyip tetiklemeyeceği yalnızca kimliklere bağlıdır. Bu yüzden karar
+ * oynatıcı denetleyicisinden bağımsız, saf bir fonksiyondur ve doğrudan test edilir.
+ *
+ * @return değişecek kanal; [targetId] oynatılan kanalsa (aynı kanalda dokunma),
+ *   [order] boşsa ya da [targetId] listede yoksa null. Null, "yeniden yükleme
+ *   tetiklenmez" demektir.
+ */
+internal fun channelSwitchTarget(order: List<Channel>, currentId: Long?, targetId: Long): Channel? {
+    if (currentId == targetId) return null
+    return order.firstOrNull { it.id == targetId }
+}

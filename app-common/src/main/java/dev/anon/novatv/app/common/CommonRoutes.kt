@@ -2,6 +2,7 @@ package dev.anon.novatv.app.common
 
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ActivityInfo
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -15,6 +16,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.anon.novatv.core.player.PlaybackController
 import dev.anon.novatv.feature.player.PlayerScreen
 import dev.anon.novatv.feature.player.PlayerViewModel
+import dev.anon.novatv.feature.player.TouchPlayerScreen
 import dev.anon.novatv.feature.player.findActivity
 import kotlinx.coroutines.delay
 
@@ -57,9 +59,11 @@ fun hasDocumentPicker(context: Context): Boolean {
 /**
  * Oynatıcı ekranının ortak gövdesi: altyazı seçici, ekran modu, uyku zamanlayıcısı.
  *
- * `touch` parametresi iki uygulamanın ortak sözleşmesi için burada; gövdede
- * dala girmiyor. Varsayılan `false` bugünkü TV davranışının aynısı, dokunmatik
- * oynatıcıyı kullanacak taraf telefon görevinde gelecek.
+ * [touch] `false` iken (TV uygulaması) D-pad OSD'li [PlayerScreen] çizilir ve
+ * çağrı listesi bugünküyle aynı kalır. `true` iken (telefon) dokunmatik
+ * [TouchPlayerScreen] çizilir ve rota açıkken etkinlik yatay kilitlenir;
+ * rotadan çıkışta yön `UNSPECIFIED`a döner. Yön kilidi burada yaşar çünkü iki
+ * uygulamanın tek ortak yeri burasıdır.
  */
 @Composable
 fun PlayerRouteContent(
@@ -94,6 +98,44 @@ fun PlayerRouteContent(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri != null) viewModel.setExternalSubtitle(uri, subtitleMimeType(context, uri))
+    }
+    if (touch) {
+        // Oynatıcı yataydır; çıkışta cihaz kendi yönüne döner. Etkinlik yoksa
+        // (önizleme, test) kilit sessizce atlanır.
+        DisposableEffect(activity) {
+            val locked = activity
+            if (locked != null) {
+                runCatching {
+                    locked.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+                }
+            }
+            onDispose {
+                if (locked != null) {
+                    runCatching {
+                        locked.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+                    }
+                }
+            }
+        }
+        TouchPlayerScreen(
+            state = state,
+            controller = controller,
+            channelOrder = viewModel.channelOrder,
+            onSelectChannel = viewModel::selectChannel,
+            onToggleOsd = viewModel::toggleOsd,
+            onHideOsd = viewModel::hideOsd,
+            onRetry = viewModel::retry,
+            onBackToChannels = onBack,
+            onSeekBack = { viewModel.seekBack() },
+            onSeekForward = { viewModel.seekForward() },
+            onCycleAspect = viewModel::cycleAspect,
+            onCycleBuffer = viewModel::cycleBuffer,
+            onSelectAudio = viewModel::selectAudio,
+            onSelectSubtitle = viewModel::selectSubtitle,
+            onChannelStep = viewModel::stepChannel,
+            onMenuOpenChange = viewModel::keepOsdVisible,
+        )
+        return
     }
     PlayerScreen(
         state = state,
