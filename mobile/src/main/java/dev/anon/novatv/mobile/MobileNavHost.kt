@@ -471,6 +471,7 @@ private fun MobileGraph(
                 onMoveDown = { playlist -> viewModel.move(playlist, 1) },
                 onDelete = viewModel::delete,
                 onBackToLive = { navController.popBackStack(Routes.LIVE, false) },
+                window = rememberNovaWindow(),
             )
         }
 
@@ -508,6 +509,7 @@ private fun MobileGraph(
                     graph.syncEngine.requestSync(id)
                     navController.popBackStack()
                 },
+                window = rememberNovaWindow(),
             )
         }
 
@@ -702,6 +704,7 @@ private fun MobileGraph(
                 onSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                 onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
+                window = rememberNovaWindow(),
             )
         }
 
@@ -720,6 +723,7 @@ private fun MobileGraph(
                 onRemovePin = viewModel::removePin,
                 onDelete = viewModel::delete,
                 onBack = { navController.popBackStack() },
+                window = rememberNovaWindow(),
             )
         }
 
@@ -743,6 +747,7 @@ private fun MobileGraph(
                     }
                 },
                 onBack = { navController.popBackStack() },
+                window = rememberNovaWindow(),
             )
         }
     }

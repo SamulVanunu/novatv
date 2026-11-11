@@ -32,6 +32,7 @@ import dev.anon.novatv.ui.component.NovaBackground
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 
@@ -53,9 +54,9 @@ fun SettingsScreen(
     onSearch: () -> Unit,
     onOpenRecordings: () -> Unit,
     onBack: () -> Unit,
+    window: NovaWindow = NovaWindow.Expanded,
     modifier: Modifier = Modifier,
 ) {
-    val appearance = state.appearance
     val context = LocalContext.current
     // İzin sistem ayarlarından verilip dönüldüğünde yeniden okunsun.
     var overlayGranted by remember { mutableStateOf(Settings.canDrawOverlays(context)) }
@@ -63,6 +64,75 @@ fun SettingsScreen(
         overlayGranted = Settings.canDrawOverlays(context)
     }
 
+    when (window) {
+        NovaWindow.Compact, NovaWindow.Medium -> CompactSettings(
+            state = state,
+            overlayGranted = overlayGranted,
+            onDark = onDark,
+            onTypeScale = onTypeScale,
+            onClock24h = onClock24h,
+            onEpgRowHeight = onEpgRowHeight,
+            onEpgWindowDays = onEpgWindowDays,
+            onAutoFrameRate = onAutoFrameRate,
+            onAutoStart = onAutoStart,
+            onSleepMinutes = onSleepMinutes,
+            onBackup = onBackup,
+            onRestore = onRestore,
+            onProfiles = onProfiles,
+            onSearch = onSearch,
+            onOpenRecordings = onOpenRecordings,
+            onBack = onBack,
+            modifier = modifier,
+        )
+
+        NovaWindow.Expanded -> TvSettings(
+            state = state,
+            overlayGranted = overlayGranted,
+            onDark = onDark,
+            onTypeScale = onTypeScale,
+            onClock24h = onClock24h,
+            onEpgRowHeight = onEpgRowHeight,
+            onEpgWindowDays = onEpgWindowDays,
+            onAutoFrameRate = onAutoFrameRate,
+            onAutoStart = onAutoStart,
+            onSleepMinutes = onSleepMinutes,
+            onBackup = onBackup,
+            onRestore = onRestore,
+            onProfiles = onProfiles,
+            onSearch = onSearch,
+            onOpenRecordings = onOpenRecordings,
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
+}
+
+/**
+ * TV gövdesi: bugünkü düzen ve boşluklar aynen korunur.
+ * `window == Expanded` dışında çizilmez.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvSettings(
+    state: SettingsUiState,
+    overlayGranted: Boolean,
+    onDark: (Boolean) -> Unit,
+    onTypeScale: (Float) -> Unit,
+    onClock24h: (Boolean) -> Unit,
+    onEpgRowHeight: (Int) -> Unit,
+    onEpgWindowDays: (Int) -> Unit,
+    onAutoFrameRate: (Boolean) -> Unit,
+    onAutoStart: (Boolean) -> Unit,
+    onSleepMinutes: (Int) -> Unit,
+    onBackup: () -> Unit,
+    onRestore: () -> Unit,
+    onProfiles: () -> Unit,
+    onSearch: () -> Unit,
+    onOpenRecordings: () -> Unit,
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val appearance = state.appearance
     NovaBackground(modifier = modifier) {
         Column(
             modifier = Modifier
@@ -277,4 +347,4 @@ private fun Section(title: String, content: @Composable () -> Unit) {
     }
 }
 
-private val SLEEP_OPTIONS = listOf(0, 15, 30, 60, 90)
+internal val SLEEP_OPTIONS = listOf(0, 15, 30, 60, 90)

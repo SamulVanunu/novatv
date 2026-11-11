@@ -35,6 +35,7 @@ import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.focus.tvFieldNavigation
+import dev.anon.novatv.ui.layout.NovaWindow
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 import dev.anon.novatv.ui.theme.NovaType
@@ -43,6 +44,43 @@ import dev.anon.novatv.ui.theme.novaTextFieldColors
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun SearchScreen(
+    state: SearchUiState,
+    onQuery: (String) -> Unit,
+    onFilter: (SearchKind?) -> Unit,
+    onSelect: (SearchHit) -> Unit,
+    onBack: () -> Unit,
+    window: NovaWindow = NovaWindow.Expanded,
+    modifier: Modifier = Modifier,
+) {
+    when (window) {
+        // Telefonda ilk odak istenmez: klavye dokunuşla açılır.
+        NovaWindow.Compact, NovaWindow.Medium -> CompactSearch(
+            state = state,
+            onQuery = onQuery,
+            onFilter = onFilter,
+            onSelect = onSelect,
+            onBack = onBack,
+            modifier = modifier,
+        )
+
+        NovaWindow.Expanded -> TvSearch(
+            state = state,
+            onQuery = onQuery,
+            onFilter = onFilter,
+            onSelect = onSelect,
+            onBack = onBack,
+            modifier = modifier,
+        )
+    }
+}
+
+/**
+ * TV gövdesi: alan açılışta odaklanır (kumandayla yazma), satırlar tek
+ * çizgide. Davranış `window == Expanded` iken bugünkü gibidir.
+ */
+@OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun TvSearch(
     state: SearchUiState,
     onQuery: (String) -> Unit,
     onFilter: (SearchKind?) -> Unit,

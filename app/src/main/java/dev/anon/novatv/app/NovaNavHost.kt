@@ -365,6 +365,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onMoveDown = { playlist -> viewModel.move(playlist, 1) },
                 onDelete = viewModel::delete,
                 onBackToLive = { navController.popBackStack(Routes.LIVE, false) },
+                window = NovaWindow.Expanded,
             )
         }
 
@@ -402,6 +403,7 @@ fun NovaNavHost(graph: NovaGraph) {
                     graph.syncEngine.requestSync(id)
                     navController.popBackStack()
                 },
+                window = NovaWindow.Expanded,
             )
         }
 
@@ -598,6 +600,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onBack = {
                     if (!navController.popBackStack()) navController.navigate(Routes.LIVE)
                 },
+                window = NovaWindow.Expanded,
             )
         }
 
@@ -616,6 +619,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onRemovePin = viewModel::removePin,
                 onDelete = viewModel::delete,
                 onBack = { navController.popBackStack() },
+                window = NovaWindow.Expanded,
             )
         }
 
@@ -639,6 +643,7 @@ fun NovaNavHost(graph: NovaGraph) {
                     }
                 },
                 onBack = { navController.popBackStack() },
+                window = NovaWindow.Expanded,
             )
         }
     }
