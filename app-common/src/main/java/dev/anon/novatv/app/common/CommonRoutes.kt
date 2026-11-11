@@ -57,9 +57,9 @@ fun hasDocumentPicker(context: Context): Boolean {
 /**
  * Oynatıcı ekranının ortak gövdesi: altyazı seçici, ekran modu, uyku zamanlayıcısı.
  *
- * Dokunmatik oynatıcı ekranı henüz yok (telefon görevinde gelecek); TV
- * uygulaması bu gövdeyi olduğu gibi kullandığı için burada bir dokunma dalı
- * bulunmuyor.
+ * `touch` parametresi iki uygulamanın ortak sözleşmesi için burada; gövdede
+ * dala girmiyor. Varsayılan `false` bugünkü TV davranışının aynısı, dokunmatik
+ * oynatıcıyı kullanacak taraf telefon görevinde gelecek.
  */
 @Composable
 fun PlayerRouteContent(
@@ -68,6 +68,7 @@ fun PlayerRouteContent(
     sleepMinutes: Int = 0,
     autoFrameRate: Boolean = false,
     onBack: () -> Unit,
+    touch: Boolean = false,
 ) {
     val context = LocalContext.current
     val activity = remember(context) { context.findActivity() }
