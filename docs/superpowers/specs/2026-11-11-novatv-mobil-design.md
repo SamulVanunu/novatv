@@ -149,9 +149,10 @@ Telefonda EPG ızgarası yerine "şimdi/sıradaki" listesi bilinçli tek sapma:
 - Bağlı (instrumented): mobil kabukta sekme geçişi, oynatıcı OSD düğmeleri;
   mevcut `testTag`'ler korunur (`open-playlists`, `settings-afr`,
   `settings-autostart`, `multiwall-2`, `multiwall-4`, `player-root`).
-- Cihaz: `vakit-tel` (1080×2400, 411 dp) telefon; aynı AVD 800×1280 dp'ye
-  çevrilerek tablet; `tv36` TV regresyon turu (Canlı, Rehber, Ayarlar,
-  oynatıcı, kanal değiştirme).
+- Cihaz: `nova-tel` (Pixel 6 profili, 1080×2400, 411 dp) telefon; yatayda
+  891 dp; tablet AVD 1600×2560 @240 dpi ≈ 1066 dp; `tv36` TV regresyon turu
+  (Canlı, Rehber, Ayarlar, oynatıcı, kanal değiştirme). `vakit-tel` dokunma
+  aygıtı yalnız `BTN_STYLUS` bildirdiği için kullanılmaz (F16).
 - Çıktı: `NovaTV-<sürüm>-release.apk` ve `NovaTV-Mobil-<sürüm>-release.apk`,
   SHA-256 ile.
 
@@ -183,3 +184,17 @@ Telefonda EPG ızgarası yerine "şimdi/sıradaki" listesi bilinçli tek sapma:
 - Oynatıcıda dokunarak kanal değiştirme, kanal listesi ve D-pad/CH tuşları çalışır.
 - Yedek al/geri yükle mobilde çalışır; ayrı veri davranışı ilk açılışta anlatılır.
 - İki APK imzalı, aynı cihazda yan yana kurulabilir, hash'leri raporlanır.
+
+## 12. Açık işler (bilinçli kabul)
+
+Bu tur kapsamı dışında bırakılan, davranışı bozmayan borç:
+
+| # | İş | Not |
+|---|---|---|
+| F22 | Film detayından dönüş kütüphaneye iner | Detay `LibraryScreen` içinde durum; rotaya taşınınca korunur |
+| F24 | `MobileNavHost` iki `NavHost` ağacı kurar (dokunmatik / TV) | Pencere sınıfı değişirse alt ekran durumu düşer; kabuk `Medium`'da sabit |
+| F25 | Mobil kabuk için instrumented test yok | `TouchWindowTest` birim testi var; rota/geri korumasız |
+| F26 | `NovaColors.apply(dark)` kompozisyonda snapshot yazar | TV'de de aynı; yan etki ayrı işte taşınır |
+| F27 | `versionCode/Name` iki manifestte tekrar ediyor | Tek kaynak ayrı iş; sürümler bugün aynı |
+| — | `TouchPlayerScreen` ~500 satır tek dosya | OSD/parça penceresi ayrılabilir |
+
