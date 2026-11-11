@@ -96,6 +96,10 @@ profiller taşınmaz. Geçiş yolu mevcut yedek/geri yükleme:
   `LocalConfiguration.current.screenWidthDp`.
 - `NovaScaffold`: `Expanded`/TV → bugünkü yan ray; `Compact`/`Medium` → alt
   gezinme çubuğu. TV her zaman `Expanded` olduğu için TV düzeni korunur.
+- **Mobil kabuk `Expanded`'a çıkmaz** (`touchWindow`): TV gövdeleri tv-material
+  `ClickableSurface` kullanır ve yalnız kumanda Enter'ını işler; parmak
+  dokunuşunu yutar. Dokunmatik uygulamada geniş pencere `Medium` sayılır,
+  içerik 720 dp'de ortalanır. `Expanded` televizyon uygulamasının düzenidir.
 - Tokenlar: kenar boşluğu 16/24/32, dokunma hedefi ≥48 dp, satır yüksekliği
   56 dp (compact), sütun sayısı `when (window) { Compact -> 2; Medium -> 3;
   Expanded -> 5 }`.
