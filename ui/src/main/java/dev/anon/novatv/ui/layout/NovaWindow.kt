@@ -5,7 +5,9 @@ import androidx.compose.ui.platform.LocalConfiguration
 
 /**
  * Pencere genişliği sınıfı: telefon/dar ekran (Compact), tablet (Medium),
- * geniş tablet (Expanded). Kütüphane ızgarası ve boşluklar buna göre değişir.
+ * geniş tablet (Expanded). Boşluklar ve özelliğe özel ızgara kuralları buna
+ * göre değişir; kütüphane sütunları `:feature:library` içindeki
+ * `libraryGridColumns` ile tek yerden seçilir.
  */
 enum class NovaWindow { Compact, Medium, Expanded }
 
@@ -17,13 +19,6 @@ fun windowClass(widthDp: Int): NovaWindow = when {
     widthDp >= 840 -> NovaWindow.Expanded
     widthDp >= 600 -> NovaWindow.Medium
     else -> NovaWindow.Compact
-}
-
-/** Kütüphane ızgarasının sütun sayısı: kompakt 2, orta 3, geniş 5. */
-fun libraryColumns(window: NovaWindow): Int = when (window) {
-    NovaWindow.Compact -> 2
-    NovaWindow.Medium -> 3
-    NovaWindow.Expanded -> 5
 }
 
 /** Ekran genişliğinden pencere sınıfı; yeniden boyutlandığında güncellenir. */

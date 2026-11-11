@@ -24,6 +24,7 @@ import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -32,7 +33,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
@@ -55,7 +55,6 @@ import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.component.NovaTapSurface
 import dev.anon.novatv.ui.layout.NovaWindow
-import dev.anon.novatv.ui.layout.windowClass
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
 import dev.anon.novatv.ui.theme.NovaType
@@ -84,6 +83,7 @@ internal val CompactEpisodeRowHeight = 56.dp
 /** Kompakt kütüphane: tam genişlik arama, sekmeler, filtre şeridi ve ızgara. */
 @Composable
 internal fun CompactLibraryBody(
+    window: NovaWindow,
     state: LibraryUiState,
     movies: LazyPagingItems<Movie>,
     series: LazyPagingItems<Series>,
@@ -103,9 +103,9 @@ internal fun CompactLibraryBody(
     val current = if (state.tab == LibraryTab.MOVIES) movies else series
     val loading = current.loadState.refresh is LoadState.Loading
     val gridState = rememberLazyGridState()
-    // Sınıf gövdeye parametre olarak geçmez: tablet büyütülüp 600 dp'yi
-    // aşarsa ızgara kendiliğinden 3 sütuna geçer, kod değişmez.
-    val columns = libraryGridColumns(windowClass(LocalConfiguration.current.screenWidthDp))
+    // Sütun kuralının tek kaynağı çağrı yerinin penceresi; gövde sınıfı
+    // yeniden hesaplamaz.
+    val columns = libraryGridColumns(window)
 
     LazyVerticalGrid(
         columns = columns,
@@ -195,7 +195,7 @@ internal fun CompactLibraryBody(
                     enabled = !state.syncing,
                     testTag = "library-refresh",
                 )
-                CompactPill(label = "Canlı TV", onClick = onBack, testTag = "library-back")
+                CompactPill(label = "Canlı'ya dön", onClick = onBack, testTag = "library-back")
             }
         }
 
@@ -277,19 +277,33 @@ internal fun CompactPill(
     )
 }
 
-/** Tek satır, yatay kaydırılan filtre/düğme şeridi. */
+/**
+ * Tek satır, yatay kaydırılan filtre/düğme şeridi.
+ *
+ * 411 dp'de sığmayan kuyruk (Temizle, Yenile, Canlı'ya dön) kırpılmaz:
+ * [horizontalScroll] ile parmakla kaydırılarak erişilir. Dolgu şeridin içinde
+ * değil çağırandan gelir; ilk düğme ekran kenarıyla aynı hizada başlar. Boşluk
+ * 8 dp. Şerit taşıyorsa sona parmak payı eklenir; taşmıyorsa düzen değişmez.
+ */
 @Composable
 internal fun CompactPillRow(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val scrollState = rememberScrollState()
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = NovaMinTouchTarget),
+            .heightIn(min = NovaMinTouchTarget)
+            .horizontalScroll(scrollState),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) { content() }
+    ) {
+        content()
+        if (scrollState.maxValue > 0) {
+            Spacer(Modifier.width(CompactScreenPadding))
+        }
+    }
 }
 
 /** Tam genişlik, tek satır arama alanı; dokununca klavye açılır. */
@@ -399,12 +413,10 @@ private fun CompactContinueCard(item: ContinueItem, onClick: () -> Unit) {
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
+                // TV ile aynı: altyazı yoksa uydurulmaz; satır boş kalır ama
+                // yüksekliğini korur, kart boyu içeriğe göre zıplamaz.
                 Text(
-                    text = item.subtitle ?: if (item.itemType == dev.anon.novatv.core.model.ItemType.MOVIE) {
-                        "Film"
-                    } else {
-                        "Bölüm"
-                    },
+                    text = item.subtitle.orEmpty(),
                     style = NovaType.Small.copy(fontSize = 12.sp),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -458,7 +470,6 @@ internal fun CompactMovieDetail(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .imePadding()
             .verticalScroll(rememberScrollState())
             .padding(CompactScreenPadding),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -527,7 +538,15 @@ internal fun CompactMovieDetail(
     }
 }
 
-/** Kompakt dizi detayı: sezonlar yatay şerit, bölümler tek sütun. */
+/**
+ * Kompakt dizi detayı: künye, sezonlar yatay şerit, bölümler tek sütun.
+ *
+ * Sayfanın tamamı tek bir [LazyColumn]'dur: künye, sezon şeridi ve ayırıcı
+ * listenin ilk öğeleri, bölümler geri kalanıdır. Böylece uzun konu ya da çok
+ * sezon bölüm listesini sıfır yüksekliğe sıkıştıramaz; bölümler her zaman
+ * kaydırılarak erişilir. Sezon şeridi bu listenin içinde kendi yatay
+ * kaydırmasını korur.
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 internal fun CompactSeriesDetail(
@@ -537,119 +556,133 @@ internal fun CompactSeriesDetail(
     onToggleFavorite: () -> Unit,
     onBack: () -> Unit,
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
             .imePadding()
-            .padding(CompactScreenPadding),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+            .padding(horizontal = CompactScreenPadding)
+            .testTag("series-episodes"),
+        verticalArrangement = Arrangement.spacedBy(6.dp),
+        contentPadding = PaddingValues(top = 12.dp, bottom = CompactScreenPadding),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                NovaLabel("Dizi")
-                Text(
-                    text = state.series?.name ?: "Dizi",
-                    style = NovaType.Title,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            CompactPill(label = "Kütüphane", onClick = onBack, testTag = "series-back")
-        }
+        item(key = "header") {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        NovaLabel("Dizi")
+                        Text(
+                            text = state.series?.name ?: "Dizi",
+                            style = NovaType.Title,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    CompactPill(label = "Kütüphane", onClick = onBack, testTag = "series-back")
+                }
 
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(modifier = Modifier.width(110.dp).height(165.dp)) {
-                PosterImage(imageUrl = state.series?.posterUrl, title = state.series?.name.orEmpty())
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    state.series?.year?.let {
-                        NovaBadge(text = it.toString(), color = NovaColors.TextMuted)
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Box(modifier = Modifier.width(110.dp).height(165.dp)) {
+                        PosterImage(
+                            imageUrl = state.series?.posterUrl,
+                            title = state.series?.name.orEmpty(),
+                        )
                     }
-                    state.series?.rating?.let {
-                        NovaBadge(text = "★ %.1f".format(it), color = NovaColors.Accent)
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            state.series?.year?.let {
+                                NovaBadge(text = it.toString(), color = NovaColors.TextMuted)
+                            }
+                            state.series?.rating?.let {
+                                NovaBadge(text = "★ %.1f".format(it), color = NovaColors.Accent)
+                            }
+                        }
+                        if (state.episodes.isNotEmpty()) {
+                            NovaBadge(
+                                text = "${state.episodes.size} bölüm",
+                                color = NovaColors.TextMuted,
+                            )
+                        }
+                        if (state.series?.genres?.isNotEmpty() == true) {
+                            Text(
+                                text = state.series.genres.joinToString(" · "),
+                                style = NovaType.Small.copy(color = NovaColors.TextMuted),
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        CompactPill(
+                            label = if (state.favorite) "★ Favori" else "☆ Favori",
+                            onClick = onToggleFavorite,
+                            selected = state.favorite,
+                            modifier = Modifier.fillMaxWidth(),
+                            testTag = "series-favorite",
+                        )
                     }
                 }
-                if (state.episodes.isNotEmpty()) {
-                    NovaBadge(text = "${state.episodes.size} bölüm", color = NovaColors.TextMuted)
-                }
-                if (state.series?.genres?.isNotEmpty() == true) {
+
+                state.series?.plot?.let { plot ->
                     Text(
-                        text = state.series.genres.joinToString(" · "),
-                        style = NovaType.Small.copy(color = NovaColors.TextMuted),
-                        maxLines = 2,
+                        text = plot,
+                        style = NovaType.BodyMuted.copy(fontSize = 15.sp, lineHeight = 20.sp),
+                        maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
-                CompactPill(
-                    label = if (state.favorite) "★ Favori" else "☆ Favori",
-                    onClick = onToggleFavorite,
-                    selected = state.favorite,
-                    modifier = Modifier.fillMaxWidth(),
-                    testTag = "series-favorite",
-                )
             }
         }
 
-        state.series?.plot?.let { plot ->
-            Text(
-                text = plot,
-                style = NovaType.BodyMuted.copy(fontSize = 15.sp, lineHeight = 20.sp),
-                maxLines = 4,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-
-        LazyRow(
-            modifier = Modifier.fillMaxWidth().testTag("season-row"),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            items(items = state.seasonTabs(), key = { it.first }) { (seasonId, label) ->
-                CompactPill(
-                    label = label,
-                    onClick = { onSelectSeason(seasonId) },
-                    selected = state.selectedSeason == seasonId,
-                    testTag = "season-$seasonId",
-                )
+        item(key = "seasons") {
+            LazyRow(
+                modifier = Modifier.fillMaxWidth().testTag("season-row"),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                items(items = state.seasonTabs(), key = { it.first }) { (seasonId, label) ->
+                    CompactPill(
+                        label = label,
+                        onClick = { onSelectSeason(seasonId) },
+                        selected = state.selectedSeason == seasonId,
+                        testTag = "season-$seasonId",
+                    )
+                }
             }
         }
 
-        NovaRule(Modifier.fillMaxWidth())
+        item(key = "rule") {
+            NovaRule(Modifier.fillMaxWidth().padding(top = 4.dp))
+        }
 
         when {
-            state.loading && state.episodes.isEmpty() -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(text = "Bölümler yükleniyor", style = NovaType.BodyMuted)
-            }
-
-            state.visibleEpisodes.isEmpty() -> Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = state.message ?: "Bu dizi için bölüm bilgisi yok",
-                    style = NovaType.BodyMuted,
-                    modifier = Modifier.testTag("series-empty"),
-                )
-            }
-
-            else -> LazyColumn(
-                modifier = Modifier.fillMaxSize().testTag("series-episodes"),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                contentPadding = PaddingValues(bottom = CompactScreenPadding),
-            ) {
-                items(items = state.visibleEpisodes, key = { it.id }) { episode ->
-                    CompactEpisodeRow(episode = episode, onClick = { onPlayEpisode(episode) })
+            state.loading && state.episodes.isEmpty() -> item(key = "loading") {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(text = "Bölümler yükleniyor", style = NovaType.BodyMuted)
                 }
+            }
+
+            state.visibleEpisodes.isEmpty() -> item(key = "empty") {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = state.message ?: "Bu dizi için bölüm bilgisi yok",
+                        style = NovaType.BodyMuted,
+                        modifier = Modifier.testTag("series-empty"),
+                    )
+                }
+            }
+
+            else -> items(items = state.visibleEpisodes, key = { it.id }) { episode ->
+                CompactEpisodeRow(episode = episode, onClick = { onPlayEpisode(episode) })
             }
         }
     }

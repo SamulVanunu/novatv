@@ -1,5 +1,7 @@
 package dev.anon.novatv.feature.library
 
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.OnBackPressedDispatcherOwner
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,9 +26,11 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -34,6 +38,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
@@ -97,6 +102,11 @@ fun LibraryScreen(
     var genreDialog by remember { mutableStateOf(false) }
     var yearDialog by remember { mutableStateOf(false) }
 
+    // Film detayı bir navigasyon rotası değil, bu ekranın kendi durumudur; nav
+    // host onu bilmez. Geri tuşunu kütüphanenin geri çağrısından (Live'a dönüş)
+    // önce yakalamak için burada `enabled` durumuyla bir geri yakalayıcı kurulur.
+    MovieDetailBackGuard(enabled = selectedMovie != null) { selectedMovie = null }
+
     if (window == NovaWindow.Expanded) {
         ExpandedLibrary(
             state = state,
@@ -121,6 +131,7 @@ fun LibraryScreen(
     } else {
         NovaBackground(modifier = modifier) {
             CompactLibraryBody(
+                window = window,
                 state = state,
                 movies = movies,
                 series = series,
@@ -195,6 +206,47 @@ fun LibraryScreen(
             onDismiss = { yearDialog = false },
         )
     }
+}
+
+/**
+ * Film detayı açıkken sistem Geri'sini tüketen yakalayıcı.
+ *
+ * Yakalayıcı, [OnBackPressedDispatcher]'a kompozisyona giriş anında eklenir,
+ * [DisposableEffect] ile ayrılırken düşer. `androidx.activity.compose.BackHandler`
+ * kullanılmadı: o yardımcı yakalayıcıyı yaşam döngüsünün RESUME durumuna bağlar
+ * ve yeniden etkinleşirken sırayı değiştirebilir; burada sıra yalnız
+ * giriş/çıkışla kurulmalı (aşağıda).
+ *
+ * Öncelik: gönderici **en son eklenen etkin** yakalayıcıyı önce çalıştırır.
+ * Nav host'un sekme geri çağrısı ekrandan önce kurulduğu için derinlik
+ * sırasında altta kalır; bu yakalayıcı detay açılırken üste eklenir, kapanınca
+ * düşer. Yaşam döngüsüne bağlanmıyoruz: o durumda ekran RESUME'a dönerken
+ * yeniden etkin olup sırada öne geçebilir ve detay kapalıyken bile nav host'un
+ * sekme/geri davranışını gölgeleyebilirdi. Yalnız giriş/çıkışla bağlamak
+ * sırayı kesin tutar.
+ */
+@Composable
+private fun MovieDetailBackGuard(enabled: Boolean, onClose: () -> Unit) {
+    val owner = LocalView.current.context.findBackOwner()
+    val close by rememberUpdatedState(onClose)
+    val dispatcher = owner?.onBackPressedDispatcher
+    DisposableEffect(dispatcher, enabled) {
+        if (dispatcher == null || !enabled) return@DisposableEffect onDispose {}
+        val callback = object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() {
+                close()
+            }
+        }
+        dispatcher.addCallback(callback)
+        onDispose { callback.remove() }
+    }
+}
+
+/** Compose bağlamında geri göndericisi sahibi; Etkinlik ya da konak. */
+private fun android.content.Context.findBackOwner(): OnBackPressedDispatcherOwner? = when (this) {
+    is OnBackPressedDispatcherOwner -> this
+    is android.content.ContextWrapper -> baseContext.findBackOwner()
+    else -> null
 }
 
 /** Geniş düzen — TV: bugünkü kütüphane, değişmeden. */
