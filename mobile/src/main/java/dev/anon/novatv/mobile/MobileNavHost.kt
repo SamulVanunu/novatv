@@ -5,9 +5,6 @@ import androidx.activity.OnBackPressedCallback
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -22,9 +19,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -178,7 +173,7 @@ fun MobileNavHost(graph: NovaGraph) {
     if (selectedTab != null) {
         // Alt çubuğun kendi payı `NovaScaffold`'tan gelir; navigasyon çubuğu
         // inset'i yalnız kabuğa eklenir, içeriğe ikinci kez eklenmez.
-        Box(modifier = chromeModifier.touchTabBar(onSelect = navController::openTab)) {
+        Box(modifier = chromeModifier) {
             NovaScaffold(
                 window = window,
                 tabs = Tabs,
@@ -808,35 +803,6 @@ private fun NavHostController.backToTabRoot(key: String) {
     }
     popBackStack(root, false)
 }
-
-/**
- * Telefonda alt çubuğun dokunma karşılığı.
- *
- * `NovaScaffold`'un sekme yüzeyi TV'nin odak diliyle çizilir; tv-material
- * 1.1.0'da `tvClickable` yalnız D-pad/Enter ve odak işler, işaretçi (dokunma)
- * işlemez. TV'de doğru olan bu davranış telefonda çubuğu dokunmaya kapatıyor.
- * Paylaşılan kabuğu değiştirmeden (TV davranışı aynı kalır) kabuğun alt
- * şeridini telefon tarafında yakalayıp sekme dokunuşunu burada çözüyoruz.
- *
- * Şerit yüksekliği `NovaScaffold`'un `BottomBarHeight`'ı ile aynıdır; ray
- * (geniş pencere) TV'ye kaldığı için dokunma yalnız alt çubukta çözülür.
- */
-private fun Modifier.touchTabBar(onSelect: (String) -> Unit): Modifier = pointerInput(Tabs) {
-    awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        val barTop = size.height - BottomBarTouchHeight.toPx()
-        if (down.position.y < barTop) return@awaitEachGesture
-        val up = waitForUpOrCancellation() ?: return@awaitEachGesture
-        if (up.position.y < barTop) return@awaitEachGesture
-        val slot = (up.position.x / (size.width / Tabs.size.coerceAtLeast(1)))
-            .toInt()
-            .coerceIn(0, Tabs.lastIndex)
-        onSelect(Tabs[slot].key)
-    }
-}
-
-/** `NovaScaffold.BottomBarHeight` (64 dp) ile aynı kalmalı. */
-private val BottomBarTouchHeight = 64.dp
 
 @Composable
 private fun rememberPlayerController(): PlaybackController {

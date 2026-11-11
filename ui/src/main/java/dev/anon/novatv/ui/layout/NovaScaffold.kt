@@ -1,7 +1,6 @@
 package dev.anon.novatv.ui.layout
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -24,12 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
@@ -38,11 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import dev.anon.novatv.ui.component.NovaStroke
+import dev.anon.novatv.ui.component.NovaTapSurface
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 
@@ -80,7 +73,6 @@ fun navigationMode(window: NovaWindow): NovaNavMode = when (window) {
  * Seçili sekme krem etiket + 3 dp kırmızı damga ile anlatılır; odak dolgusu
  * yalnız D-pad/klavye odaklanmasında görünür.
  */
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 fun NovaScaffold(
     window: NovaWindow,
@@ -281,7 +273,6 @@ private fun TabLabel(text: String, color: Color, maxLines: Int, modifier: Modifi
  * Tek sekme yüzeyi: alt çubuk ve ray aynı görsel dili paylaşır, yalnız
  * düzen farklıdır (`horizontal`: glif yanında yatay, değilse üstte).
  */
-@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun TabSurface(
     tab: NovaTab,
@@ -293,40 +284,33 @@ private fun TabSurface(
 ) {
     val shape = RoundedCornerShape(10.dp)
     // Odak dolgusu yalnız D-pad/klavye odağında görünür; dokunmada yok.
-    var focused by remember { mutableStateOf(false) }
+    // Yazı rengi seçimden gelir; odak ve basılı rengi yüzeyin state'i verir
+    // (`NovaTapSurface`), glif ve etiket onu okur.
     val contentColor by animateColorAsState(
-        targetValue = when {
-            focused -> NovaColors.FocusInk
-            selected -> NovaColors.Text
-            else -> NovaColors.TextMuted
-        },
+        targetValue = if (selected) NovaColors.Text else NovaColors.TextMuted,
         label = "nova-tab-content",
     )
-    Surface(
+    NovaTapSurface(
         onClick = onClick,
-        shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = Color.Transparent,
-            contentColor = contentColor,
-            focusedContainerColor = NovaColors.Focus,
-            focusedContentColor = NovaColors.FocusInk,
-            pressedContainerColor = NovaColors.SurfacePressed,
-            pressedContentColor = NovaColors.Text,
-        ),
-        border = ClickableSurfaceDefaults.border(
-            border = Border(BorderStroke(1.dp, Color.Transparent), shape = shape),
-            focusedBorder = Border(BorderStroke(2.dp, NovaColors.Focus), shape = shape),
-            pressedBorder = Border(BorderStroke(1.dp, NovaColors.Border), shape = shape),
-        ),
-        scale = ClickableSurfaceDefaults.scale(scale = 1f, focusedScale = 1f, pressedScale = 0.98f),
+        shape = shape,
+        containerColor = Color.Transparent,
+        contentColor = contentColor,
+        focusedContainerColor = NovaColors.Focus,
+        focusedContentColor = NovaColors.FocusInk,
+        pressedContainerColor = NovaColors.SurfacePressed,
+        pressedContentColor = NovaColors.Text,
+        border = NovaStroke(1.dp, Color.Transparent),
+        focusedBorder = NovaStroke(2.dp, NovaColors.Focus),
+        pressedBorder = NovaStroke(1.dp, NovaColors.Border),
+        focusedScale = 1f,
+        pressedScale = 0.98f,
         modifier = modifier
             .heightIn(min = minHeight)
             .widthIn(min = 48.dp)
-            .onFocusChanged { focused = it.isFocused }
             // Etiketi görünür `Text` sağlıyor; burada tekrar okunmasın.
             .semantics { this.selected = selected }
             .testTag(tab.testTag),
-    ) {
+    ) { state ->
         if (horizontal) {
             Row(
                 modifier = Modifier
@@ -347,9 +331,9 @@ private fun TabSurface(
                     modifier = Modifier.weight(1f),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    TabGlyph(color = contentColor, alpha = 1f)
+                    TabGlyph(color = state.contentColor, alpha = 1f)
                     Spacer(Modifier.height(6.dp))
-                    TabLabel(text = tab.label, color = contentColor, maxLines = 2)
+                    TabLabel(text = tab.label, color = state.contentColor, maxLines = 2)
                 }
             }
         } else {
@@ -362,9 +346,9 @@ private fun TabSurface(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center,
             ) {
-                TabGlyph(color = contentColor, alpha = 1f)
+                TabGlyph(color = state.contentColor, alpha = 1f)
                 Spacer(Modifier.height(4.dp))
-                TabLabel(text = tab.label, color = contentColor, maxLines = 1)
+                TabLabel(text = tab.label, color = state.contentColor, maxLines = 1)
                 Spacer(Modifier.height(4.dp))
                 Indicator(
                     modifier = Modifier

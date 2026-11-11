@@ -1,6 +1,5 @@
 package dev.anon.novatv.ui.component
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -24,10 +23,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Border
-import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.ExperimentalTvMaterial3Api
-import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
@@ -132,38 +128,25 @@ fun NovaPill(
         accent -> NovaColors.Accent
         else -> NovaColors.Focus
     }
-    Surface(
+    NovaTapSurface(
         onClick = onClick,
         enabled = enabled,
-        shape = ClickableSurfaceDefaults.shape(shape = shape),
-        colors = ClickableSurfaceDefaults.colors(
-            containerColor = idleContainer,
-            contentColor = idleContent,
-            focusedContainerColor = focusContainer,
-            focusedContentColor = focusContent,
-            pressedContainerColor = focusContainer,
-            pressedContentColor = focusContent,
-            disabledContainerColor = Color.Transparent,
-            disabledContentColor = NovaColors.TextDim,
-        ),
-        border = ClickableSurfaceDefaults.border(
-            border = Border(border = BorderStroke(1.dp, idleBorder), shape = shape),
-            focusedBorder = Border(border = BorderStroke(2.dp, focusBorder), shape = shape),
-            pressedBorder = Border(border = BorderStroke(2.dp, focusBorder), shape = shape),
-            disabledBorder = Border(
-                border = BorderStroke(1.dp, NovaColors.Border.copy(alpha = 0.5f)),
-                shape = shape,
-            ),
-        ),
-        scale = ClickableSurfaceDefaults.scale(
-            scale = 1f,
-            focusedScale = 1.02f,
-            pressedScale = 0.98f,
-        ),
+        shape = shape,
+        containerColor = idleContainer,
+        contentColor = idleContent,
+        focusedContainerColor = focusContainer,
+        focusedContentColor = focusContent,
+        pressedContainerColor = focusContainer,
+        pressedContentColor = focusContent,
+        border = NovaStroke(1.dp, idleBorder),
+        focusedBorder = NovaStroke(2.dp, focusBorder),
+        pressedBorder = NovaStroke(2.dp, focusBorder),
+        focusedScale = 1.02f,
+        pressedScale = 0.98f,
         modifier = modifier.then(
             if (testTag != null) Modifier.testTag(testTag) else Modifier,
         ),
-    ) {
+    ) { state ->
         Row(
             modifier = Modifier.padding(horizontal = 18.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically,
@@ -171,7 +154,7 @@ fun NovaPill(
         ) {
             Text(
                 text = label,
-                style = NovaType.Button,
+                style = NovaType.Button.copy(color = state.contentColor),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
