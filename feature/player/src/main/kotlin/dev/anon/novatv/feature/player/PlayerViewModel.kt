@@ -57,6 +57,8 @@ data class PlayerUiState(
     val error: String? = null,
     /** Donanım→yazılım geçişi gibi kısa ömürlü oynatıcı bildirimi. */
     val notice: String? = null,
+    /** Kanal değişiminde kısa süre görünen kanal bandı. */
+    val zap: Channel? = null,
 )
 
 class PlayerViewModel(
@@ -70,6 +72,8 @@ class PlayerViewModel(
     private val title = MutableStateFlow<String?>(null)
     private val osdVisible = MutableStateFlow(false)
     private val error = MutableStateFlow<String?>(null)
+    private val zap = MutableStateFlow<Channel?>(null)
+    private var zapJob: Job? = null
     private var hideJob: Job? = null
     private var lastRecordedChannelId: Long? = null
     private var externalSubtitle: SubtitleSpec? = null
@@ -95,8 +99,8 @@ class PlayerViewModel(
         playbackController.canSeekBack,
     ) { visible, aspect, seekBack -> OsdInfo(visible, aspect, seekBack) }
 
-    private val messages = combine(error, playbackController.notice) { failure, notice ->
-        failure to notice
+    private val messages = combine(error, playbackController.notice, zap) { failure, notice, zap ->
+        Triple(failure, notice, zap)
     }
 
     private val identity = combine(channel, title) { channel, title -> channel to title }
@@ -121,6 +125,7 @@ class PlayerViewModel(
             canSeekBack = osd.canSeekBack,
             error = message.first,
             notice = message.second,
+            zap = message.third,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -148,6 +153,7 @@ class PlayerViewModel(
     }
 
     fun open(channelId: Long, catchupAt: Long? = null, catchupMinutes: Int = 0) {
+        clearZap()
         lastRecordedChannelId = null
         externalSubtitle = null
         vod = null
@@ -169,6 +175,7 @@ class PlayerViewModel(
 
     /** Film/bölüm oynatması; konum ve ilerleme geri bildirimi çağıran tarafta. */
     fun openVod(request: VodRequest) {
+        clearZap()
         lastRecordedChannelId = null
         externalSubtitle = null
         catchup = null
@@ -177,6 +184,30 @@ class PlayerViewModel(
         title.value = request.title
         viewModelScope.launch { playVod(request) }
         startProgress(request)
+    }
+
+    /**
+     * Kanalı [delta] kadar ilerletir (CH+/CH- ya da D-pad yukarı/ağı).
+     *
+     * Sıra, Rehber'in gördüğü liste: gizli kanal/gruplar yok, numara/ad sırası.
+     * Uçlarda başa döner; arşiv (catch-up) izlerken canlıya geçer, film/dizide
+     * çalışmaz.
+     */
+    fun stepChannel(delta: Int) {
+        if (vod != null) return
+        val current = channel.value ?: return
+        viewModelScope.launch {
+            val order = runCatching { repository.zappingOrder() }
+                .onFailure(::report)
+                .getOrNull()
+                ?: return@launch
+            val target = channelStep(order, current.id, delta) ?: return@launch
+            catchup = null
+            hideOsd()
+            channel.value = target
+            showZapBadge(target)
+            play(target)
+        }
     }
 
     fun retry() {
@@ -349,6 +380,21 @@ class PlayerViewModel(
             }
     }
 
+    private fun showZapBadge(target: Channel) {
+        zapJob?.cancel()
+        zap.value = target
+        zapJob = viewModelScope.launch {
+            delay(ZAP_BADGE_MS)
+            zap.value = null
+        }
+    }
+
+    private fun clearZap() {
+        zapJob?.cancel()
+        zapJob = null
+        zap.value = null
+    }
+
     private fun report(throwable: Throwable) {
         error.value = throwable.message ?: throwable::class.simpleName
     }
@@ -362,6 +408,7 @@ class PlayerViewModel(
     companion object {
         const val OSD_TIMEOUT_MS = 4_000L
         const val NOTICE_TIMEOUT_MS = 6_000L
+        const val ZAP_BADGE_MS = 2_500L
         const val SEEK_BACK_STEP_MS = 10_000L
         const val SEEK_BACK_MINUTE_MS = 60_000L
         const val DEFAULT_BUFFER_SECONDS = 30

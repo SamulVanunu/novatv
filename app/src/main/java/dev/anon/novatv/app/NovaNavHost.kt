@@ -735,6 +735,7 @@ private fun PlayerRouteContent(
                 viewModel.reportMissingSubtitlePicker()
             }
         },
+        onChannelStep = viewModel::stepChannel,
         onMenuOpenChange = viewModel::keepOsdVisible,
     )
 }

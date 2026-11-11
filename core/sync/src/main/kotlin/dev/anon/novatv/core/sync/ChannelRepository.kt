@@ -42,6 +42,12 @@ interface ChannelRepository {
 
     /** Çoklu ekran ve seçiciler için düz liste; 0 = tümü. */
     suspend fun allChannels(limit: Int = 0): List<Channel>
+
+    /**
+     * Oynatıcıda kanal ilerletme sırası: gizli kanal/gruplar hariç, listedeki
+     * sırayla (numara, sonra ad). Varsayılan, tüm kanallar.
+     */
+    suspend fun zappingOrder(): List<Channel> = allChannels()
     suspend fun toggleFavorite(channel: Channel)
     suspend fun hideChannel(channel: Channel)
     suspend fun hideGroup(group: String)
@@ -133,6 +139,15 @@ class RoomChannelRepository(
             db.channelDao().byPlaylist(id).map { it.toModel() }
         }
         return if (limit > 0) channels.take(limit) else channels
+    }
+
+    override suspend fun zappingOrder(): List<Channel> {
+        val playlistIds = db.playlistDao().observeActive().first().map { it.id }
+        val profileId = preferenceStore.activeProfileId.first()
+        return db.channelDao()
+            .observeForGuide(playlistIds, null, profileId)
+            .first()
+            .map { it.toModel() }
     }
 
     override suspend fun toggleFavorite(channel: Channel) {

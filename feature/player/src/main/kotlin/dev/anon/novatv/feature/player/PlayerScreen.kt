@@ -42,6 +42,7 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import androidx.tv.material3.Text
 import androidx.tv.material3.ExperimentalTvMaterial3Api
+import dev.anon.novatv.core.model.Channel
 import dev.anon.novatv.core.player.PlaybackController
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
@@ -70,6 +71,7 @@ fun PlayerScreen(
     onSelectAudio: (String) -> Unit,
     onSelectSubtitle: (String?) -> Unit,
     onPickSubtitleFile: () -> Unit = {},
+    onChannelStep: (Int) -> Unit = {},
     onMenuOpenChange: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -124,11 +126,27 @@ fun PlayerScreen(
             .focusRequester(rootFocus)
             .focusable()
             .onPreviewKeyEvent { event ->
-                // Geri tuşu KeyDown'da işlenir: parça menüsü gibi bir diyalog
-                // kapandığında artan KeyUp olayı oynatıcıdan çıkarmasın.
+                // Kanallar arasında gezinme. Bazı kutuların kumandasında
+                // CH+/CH- yok; D-pad yukarı/ağı onların yerini tutar. OSD
+                // açıkken D-pad OSD'de dolaşır, tuşu yutmayız.
+                val zapEnabled = !state.vod && state.playback !is PlaybackState.Failed
+                val zapKey = when {
+                    event.key == Key.ChannelUp -> 1
+                    event.key == Key.ChannelDown -> -1
+                    !state.osdVisible && event.key == Key.DirectionUp -> 1
+                    !state.osdVisible && event.key == Key.DirectionDown -> -1
+                    else -> 0
+                }
                 when {
+                    // Geri tuşu KeyDown'da işlenir: parça menüsü gibi bir diyalog
+                    // kapandığında artan KeyUp olayı oynatıcıdan çıkarmasın.
                     event.key == Key.Back && event.type == KeyEventType.KeyDown -> {
                         if (state.osdVisible) onHideOsd() else onBackToChannels()
+                        true
+                    }
+
+                    zapKey != 0 && event.type == KeyEventType.KeyDown && zapEnabled -> {
+                        onChannelStep(zapKey)
                         true
                     }
 
@@ -175,6 +193,15 @@ fun PlayerScreen(
             )
         }
 
+        state.zap?.let { channel ->
+            ChannelBanner(
+                channel = channel,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(start = 28.dp, top = 26.dp),
+            )
+        }
+
         if (state.osdVisible && !inPip) {
             PlayerOsd(
                 state = state,
@@ -193,8 +220,51 @@ fun PlayerScreen(
     }
 }
 
-/** Donanım→yazılım geçişi gibi sessiz kalmaması gereken oynatıcı bildirimleri. */
+/**
+ * Kanal değişimi bandı: numara, ad ve canlı işareti. OSD'den bağımsız,
+ * birkaç saniye sonra kendiliğinden kaybolur.
+ */
 @OptIn(ExperimentalTvMaterial3Api::class)
+@Composable
+private fun ChannelBanner(channel: Channel, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .background(NovaColors.Background.copy(alpha = 0.92f), RoundedCornerShape(10.dp))
+            .border(1.dp, NovaColors.Border, RoundedCornerShape(10.dp))
+            .padding(horizontal = 18.dp, vertical = 12.dp)
+            .testTag("player-zap"),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(38.dp)
+                .background(NovaColors.Accent, RoundedCornerShape(50)),
+        )
+        channel.number?.let { number ->
+            Text(
+                text = number.toString(),
+                style = NovaType.Number.copy(fontSize = 20.sp, color = NovaColors.Text),
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(
+                text = channel.name,
+                style = NovaType.Title.copy(fontSize = 20.sp, lineHeight = 26.sp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                text = "CANLI",
+                style = NovaType.Label.copy(color = NovaColors.Accent),
+                maxLines = 1,
+            )
+        }
+    }
+}
+
+/** Donanım→yazılım geçişi gibi sessiz kalmaması gereken oynatıcı bildirimleri. */@OptIn(ExperimentalTvMaterial3Api::class)
 @Composable
 private fun NoticeBanner(message: String, modifier: Modifier = Modifier) {
     Row(
