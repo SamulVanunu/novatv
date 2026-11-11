@@ -309,7 +309,8 @@ private fun TouchOsd(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             NovaLabel(state.title ?: state.channel?.name ?: "Kanal")
-            if (state.playback is PlaybackState.Playing) {
+            // "canlı" damgası yalnız canlı yayında anlamlı; film/dizide yanlış.
+            if (!state.vod && state.playback is PlaybackState.Playing) {
                 NovaBadge(text = "canlı", color = NovaColors.Live)
             } else if (state.playback is PlaybackState.Buffering) {
                 NovaBadge(text = "tampon", color = NovaColors.Warning)
@@ -331,7 +332,7 @@ private fun TouchOsd(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             TouchButton(
-                label = "‹ Kanal",
+                label = if (state.vod) "‹ Geri" else "‹ Kanal",
                 onClick = onBackToChannels,
                 modifier = Modifier
                     .weight(1f)
@@ -387,13 +388,15 @@ private fun TouchOsd(
                 modifier = Modifier.weight(1f),
                 testTag = "osd-buffer",
             )
-            TouchButton(
-                label = "Liste",
-                onClick = onOpenPicker,
-                modifier = Modifier.weight(1f),
-                testTag = "osd-list",
-                accent = true,
-            )
+            if (!state.vod) {
+                TouchButton(
+                    label = "Liste",
+                    onClick = onOpenPicker,
+                    modifier = Modifier.weight(1f),
+                    testTag = "osd-list",
+                    accent = true,
+                )
+            }
         }
     }
 }

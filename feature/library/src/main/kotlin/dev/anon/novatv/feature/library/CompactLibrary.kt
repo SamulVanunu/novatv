@@ -95,7 +95,7 @@ internal fun CompactLibraryBody(
     onRefresh: () -> Unit,
     onOpenGenre: () -> Unit,
     onOpenYear: () -> Unit,
-    onPlayMovie: (Movie) -> Unit,
+    onSelectMovie: (Movie) -> Unit,
     onOpenSeries: (Series) -> Unit,
     onContinue: (ContinueItem) -> Unit,
     onBack: () -> Unit,
@@ -234,7 +234,10 @@ internal fun CompactLibraryBody(
                     subtitle = movie.year?.toString(),
                     imageUrl = movie.posterUrl,
                     favorite = movie.id in state.favoriteIds,
-                    onClick = { onPlayMovie(movie) },
+                    // TV'de poster detayı açar. Telefonda doğrudan oynatmak
+                    // film bilgisini (yıl, tür, özet, favori) erişilemez
+                    // bırakıyordu; aynı yol izlenir.
+                    onClick = { onSelectMovie(movie) },
                 )
             }
 

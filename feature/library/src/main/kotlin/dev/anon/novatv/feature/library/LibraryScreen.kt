@@ -143,7 +143,7 @@ fun LibraryScreen(
                 onRefresh = onRefresh,
                 onOpenGenre = { genreDialog = true },
                 onOpenYear = { yearDialog = true },
-                onPlayMovie = onPlayMovie,
+                onSelectMovie = { selectedMovie = it },
                 onOpenSeries = onOpenSeries,
                 onContinue = onContinue,
                 onBack = onBack,
