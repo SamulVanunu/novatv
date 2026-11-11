@@ -35,6 +35,7 @@ import dev.anon.novatv.ui.component.NovaBadge
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.layout.CompactContentMaxWidth
 import dev.anon.novatv.ui.layout.rememberNovaSpacing
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaTextFieldTheme
@@ -80,7 +81,7 @@ internal fun CompactPlaylistForm(
                 modifier = Modifier
                     // Sıra önemli: önce sınır, sonra doldurma. `fillMaxSize`
                     // dışta kalırsa genişlik sabitlenir, 720 dp sınırı işlemez.
-                    .widthIn(max = 720.dp)
+                    .widthIn(max = CompactContentMaxWidth)
                     .fillMaxSize()
                     .imePadding()
                     .verticalScroll(rememberScrollState())

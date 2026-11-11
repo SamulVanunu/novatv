@@ -10,6 +10,12 @@ import androidx.compose.ui.unit.dp
  */
 data class NovaSpacing(val screen: Dp, val gap: Dp)
 
+/**
+ * Kompakt gövdelerin içerik sınırı: geniş ekranda satır 720 dp'yi aşmaz ve
+ * içerik ortalanır. Televizyon gövdeleri bu sınırı kullanmaz.
+ */
+val CompactContentMaxWidth = 720.dp
+
 /** Pencere sınıfına göre boşluklar: kompakt 16/8, orta 24/12, geniş 32/16. */
 fun spacingFor(window: NovaWindow): NovaSpacing = when (window) {
     NovaWindow.Compact -> NovaSpacing(screen = 16.dp, gap = 8.dp)

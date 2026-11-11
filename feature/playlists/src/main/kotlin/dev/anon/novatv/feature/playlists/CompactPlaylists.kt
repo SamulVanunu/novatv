@@ -36,6 +36,7 @@ import dev.anon.novatv.ui.component.NovaBadge
 import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
+import dev.anon.novatv.ui.layout.CompactContentMaxWidth
 import dev.anon.novatv.ui.layout.rememberNovaSpacing
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
@@ -44,7 +45,7 @@ import dev.anon.novatv.ui.theme.NovaType
  * Kaynaklar ekranının telefon/tablet düzeni.
  *
  * TV gövdesinden ayrıdır; `window == Expanded` bu dosyadaki hiçbir bileşeni
- * çizmez. Tek sütun, `NovaSpacing` boşlukları, içerik `widthIn(max = 720.dp)`
+ * çizmez. Tek sütun, `NovaSpacing` boşlukları, içerik `widthIn(max = CompactContentMaxWidth)`
  * ile ortalanır.
  *
  * Kart üstte ad/işaret/rozetler ve arındırılmış adresi taşır; altta düzenleme
@@ -76,7 +77,7 @@ internal fun CompactPlaylists(
                 modifier = Modifier
                     // Sıra önemli: önce sınır, sonra doldurma. `fillMaxSize`
                     // dışta kalırsa genişlik sabitlenir, 720 dp sınırı işlemez.
-                    .widthIn(max = 720.dp)
+                    .widthIn(max = CompactContentMaxWidth)
                     .fillMaxSize()
                     .testTag("playlists-compact"),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(

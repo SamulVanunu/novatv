@@ -35,12 +35,12 @@ import dev.anon.novatv.ui.component.NovaLabel
 import dev.anon.novatv.ui.component.NovaPill
 import dev.anon.novatv.ui.component.NovaRule
 import dev.anon.novatv.ui.component.NovaTapSurface
+import dev.anon.novatv.ui.layout.CompactContentMaxWidth
 import dev.anon.novatv.ui.layout.rememberNovaSpacing
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
 
 /** Kompakt içerik sütununun üst sınırı: tablette satır ortalanır, telefon taşmaz. */
-private val CompactContentMaxWidth = 720.dp
 
 /**
  * Kayıtlar ekranının telefon/tablet düzeni.
