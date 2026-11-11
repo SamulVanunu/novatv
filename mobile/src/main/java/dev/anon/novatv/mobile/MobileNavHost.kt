@@ -380,6 +380,7 @@ private fun MobileGraph(
                 onAssign = viewModel::assign,
                 onClear = viewModel::clearPane,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
+                window = rememberNovaWindow(),
             )
         }
 
@@ -403,6 +404,7 @@ private fun MobileGraph(
                 onDelete = viewModel::delete,
                 onRefresh = viewModel::refresh,
                 onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
+                window = rememberNovaWindow(),
             )
         }
 

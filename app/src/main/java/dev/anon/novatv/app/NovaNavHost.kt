@@ -66,6 +66,7 @@ import dev.anon.novatv.feature.settings.SearchViewModel
 import dev.anon.novatv.feature.settings.SettingsRoutes
 import dev.anon.novatv.feature.settings.SettingsScreen
 import dev.anon.novatv.feature.settings.SettingsViewModel
+import dev.anon.novatv.ui.layout.NovaWindow
 import java.io.File
 import java.time.Instant
 import kotlinx.coroutines.flow.first
@@ -272,6 +273,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onBack = {
                     if (!navController.popBackStack()) navController.navigate(Routes.LIVE)
                 },
+                window = NovaWindow.Expanded,
             )
         }
 
@@ -297,6 +299,7 @@ fun NovaNavHost(graph: NovaGraph) {
                 onBack = {
                     if (!navController.popBackStack()) navController.navigate(Routes.LIVE)
                 },
+                window = NovaWindow.Expanded,
             )
         }
 

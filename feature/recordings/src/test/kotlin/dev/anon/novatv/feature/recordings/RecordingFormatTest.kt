@@ -66,6 +66,24 @@ class RecordingFormatTest {
         assertEquals(0f, recordingProgress(entry, start))
     }
 
+    @Test
+    fun durationUsesActualEndWhenManuallyStopped() {
+        val entry = entry(startAt = start, endAt = end)
+            .copy(finishedAt = start + 25 * 60_000L)
+
+        assertEquals("25 dk", recordingDurationLabel(entry))
+    }
+
+    @Test
+    fun durationFallsBackToPlannedWindow() {
+        assertEquals("90 dk", recordingDurationLabel(entry(startAt = start, endAt = end)))
+    }
+
+    @Test
+    fun durationNeverReportsZero() {
+        assertEquals("1 dk", recordingDurationLabel(entry(startAt = start, endAt = start)))
+    }
+
     private fun entry(startAt: Long, endAt: Long) = RecordingEntry(
         id = "rec-1",
         channelId = 3,

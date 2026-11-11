@@ -21,6 +21,16 @@ internal fun recordingTimeLabel(startAt: Long, endAt: Long, zone: ZoneId = ZoneI
 internal fun recordingEntryTimeLabel(entry: RecordingEntry, zone: ZoneId = ZoneId.systemDefault()): String =
     recordingTimeLabel(entry.startAt, entry.finishedAt ?: entry.endAt, zone)
 
+/**
+ * Kaydın süresi dakika olarak: elle durdurulmuş kayıtta gerçek bitiş,
+ * diğerlerinde planlanan pencere. Kompakt kartta süre satırı için.
+ */
+internal fun recordingDurationLabel(entry: RecordingEntry): String {
+    val end = entry.finishedAt ?: entry.endAt
+    val minutes = ((end - entry.startAt) / 60_000L).coerceAtLeast(1L)
+    return "$minutes dk"
+}
+
 internal fun recordingStatusLabel(status: RecordingStatus): String = when (status) {
     RecordingStatus.SCHEDULED -> "Planlandı"
     RecordingStatus.RECORDING -> "Kaydediliyor"
