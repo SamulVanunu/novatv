@@ -1,6 +1,7 @@
 package dev.anon.novatv.ui.layout
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -34,7 +35,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
-import dev.anon.novatv.ui.component.NovaStroke
 import dev.anon.novatv.ui.component.NovaTapSurface
 import dev.anon.novatv.ui.theme.NovaColors
 import dev.anon.novatv.ui.theme.NovaType
@@ -299,9 +299,9 @@ private fun TabSurface(
         focusedContentColor = NovaColors.FocusInk,
         pressedContainerColor = NovaColors.SurfacePressed,
         pressedContentColor = NovaColors.Text,
-        border = NovaStroke(1.dp, Color.Transparent),
-        focusedBorder = NovaStroke(2.dp, NovaColors.Focus),
-        pressedBorder = NovaStroke(1.dp, NovaColors.Border),
+        border = BorderStroke(1.dp, Color.Transparent),
+        focusedBorder = BorderStroke(2.dp, NovaColors.Focus),
+        pressedBorder = BorderStroke(1.dp, NovaColors.Border),
         focusedScale = 1f,
         pressedScale = 0.98f,
         modifier = modifier

@@ -1,5 +1,6 @@
 package dev.anon.novatv.ui.component
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -138,9 +139,9 @@ fun NovaPill(
         focusedContentColor = focusContent,
         pressedContainerColor = focusContainer,
         pressedContentColor = focusContent,
-        border = NovaStroke(1.dp, idleBorder),
-        focusedBorder = NovaStroke(2.dp, focusBorder),
-        pressedBorder = NovaStroke(2.dp, focusBorder),
+        border = BorderStroke(1.dp, idleBorder),
+        focusedBorder = BorderStroke(2.dp, focusBorder),
+        pressedBorder = BorderStroke(2.dp, focusBorder),
         focusedScale = 1.02f,
         pressedScale = 0.98f,
         modifier = modifier.then(
