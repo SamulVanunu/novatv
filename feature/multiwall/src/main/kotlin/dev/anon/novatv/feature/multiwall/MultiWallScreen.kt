@@ -422,18 +422,46 @@ private fun ChannelPickerDialog(
                 }
             }
             NovaRule(Modifier.fillMaxWidth())
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                NovaPill(
-                    label = "Kutuyu boşalt",
-                    onClick = onClear,
-                    modifier = Modifier.weight(1f).then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier),
-                )
-                NovaPill(
-                    label = "Kapat",
-                    onClick = onDismiss,
-                    modifier = Modifier.weight(1f).then(if (touch) Modifier.heightIn(min = 48.dp) else Modifier),
-                )
-            }
+            PickerActions(touch = touch, onClear = onClear, onDismiss = onDismiss)
+        }
+    }
+}
+
+/**
+ * Seçici alt eylemleri. Dokunmatikte yan yana iki düğme 411 dp panelde
+ * "Kutuyu bo…" diye kırpılıyordu; dikey yığılır ve 48 dp tabanına oturur.
+ */
+@Composable
+private fun PickerActions(
+    touch: Boolean,
+    onClear: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (touch) {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            NovaPill(
+                label = "Kutuyu boşalt",
+                onClick = onClear,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            )
+            NovaPill(
+                label = "Kapat",
+                onClick = onDismiss,
+                modifier = Modifier.fillMaxWidth().heightIn(min = 48.dp),
+            )
+        }
+    } else {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            NovaPill(
+                label = "Kutuyu boşalt",
+                onClick = onClear,
+                modifier = Modifier.weight(1f),
+            )
+            NovaPill(
+                label = "Kapat",
+                onClick = onDismiss,
+                modifier = Modifier.weight(1f),
+            )
         }
     }
 }

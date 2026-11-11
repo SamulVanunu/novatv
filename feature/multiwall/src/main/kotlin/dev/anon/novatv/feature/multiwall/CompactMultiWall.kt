@@ -234,15 +234,22 @@ private fun CompactPane(
             }
 
             if (channel != null) {
-                NovaPill(
-                    label = "Kanalı kaldır",
-                    onClick = { onClear(index) },
+                // NovaPill varsayılan olarak şeffaf; parlak bir görüntü üstünde
+                // yazı kayboluyordu. Düğme opak bir çip zeminine oturur.
+                Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
                         .padding(spacing.gap)
-                        .heightIn(min = 48.dp),
-                    testTag = "multiwall-clear-$index",
-                )
+                        .background(NovaColors.Background.copy(alpha = 0.92f), shape)
+                        .padding(2.dp),
+                ) {
+                    NovaPill(
+                        label = "Kanalı kaldır",
+                        onClick = { onClear(index) },
+                        modifier = Modifier.heightIn(min = 48.dp),
+                        testTag = "multiwall-clear-$index",
+                    )
+                }
             }
         }
     }
