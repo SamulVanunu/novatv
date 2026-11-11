@@ -93,6 +93,7 @@ fun ProfilesScreen(
             title = "${target.name} profiline geç",
             subtitle = "Bu profil PIN ile korunuyor",
             error = state.pinError,
+            touch = window != NovaWindow.Expanded,
             onSubmit = onSubmitPin,
             onDismiss = onCancelPin,
         )

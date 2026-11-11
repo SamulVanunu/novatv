@@ -81,8 +81,9 @@ internal fun CompactSearch(
     Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier
-                .fillMaxSize()
+                // Sıra önemli: önce sınır, sonra doldurma.
                 .widthIn(max = 720.dp)
+                .fillMaxSize()
                 .imePadding()
                 .padding(
                     start = spacing.screen,

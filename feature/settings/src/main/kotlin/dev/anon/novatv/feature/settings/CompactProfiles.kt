@@ -83,8 +83,10 @@ internal fun CompactProfiles(
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
             LazyColumn(
                 modifier = Modifier
-                    .fillMaxSize()
+                    // Sıra önemli: önce sınır, sonra doldurma. `fillMaxSize`
+                    // dışta kalırsa genişlik sabitlenir, 720 dp sınırı işlemez.
                     .widthIn(max = 720.dp)
+                    .fillMaxSize()
                     .imePadding()
                     .testTag("profiles-compact"),
                 contentPadding = PaddingValues(
