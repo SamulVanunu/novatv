@@ -7,12 +7,17 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -167,10 +172,16 @@ fun TouchPlayerScreen(
         }
 
         // Üst bölge: kanal bandı ve bildirim, TV'deki okuma düzenini izler.
+        // Video kenara ulaşır ama yazı sistem çubuğunun altına girmez.
         Column(
             modifier = Modifier
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                    ),
+                )
                 .padding(start = 16.dp, end = 16.dp, top = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -271,6 +282,9 @@ private fun TouchOsd(
     onOpenPicker: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // Degrade tam genişlikte kalır (video kenara ulaşır); düğmeler sistem
+    // çubuklarının altına girmez. Yatayda da pay verilir: telefonda navigasyon
+    // çubuğu yatayda sağ kenara biner ve "Liste" düğmesini yiyordu.
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -279,6 +293,11 @@ private fun TouchOsd(
                     0f to Color(0x00070A0E),
                     0.35f to Color(0xB3070A0E),
                     1f to Color(0xF7070A0E),
+                ),
+            )
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal,
                 ),
             )
             .padding(horizontal = 16.dp, vertical = 12.dp)
