@@ -1,8 +1,13 @@
 package dev.anon.novatv.mobile
 
 import android.net.Uri
+import androidx.activity.OnBackPressedCallback
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
@@ -17,7 +22,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
@@ -143,10 +150,35 @@ fun MobileNavHost(graph: NovaGraph) {
             .windowInsetsPadding(insets)
     }
 
+    // Sistem Geri: sekme kökünden ve alt ekrandan çıkmak yığını boşaltmaz.
+    // Canlı yığında kalan tek giriş olduğunda Geri uygulamadan çıkar; bunun
+    // için geri çağrısını etkin bırakmayız, etkinlik varsayılanı işler.
+    val backDispatcher = LocalOnBackPressedDispatcherOwner.current?.onBackPressedDispatcher
+    DisposableEffect(backDispatcher, selectedTab) {
+        val dispatcher = backDispatcher ?: return@DisposableEffect onDispose {}
+        val callback: OnBackPressedCallback? = if (selectedTab == null) {
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    navController.popBackStack()
+                }
+            }
+        } else if (selectedTab != MobileTabs.LIVE) {
+            object : OnBackPressedCallback(true) {
+                override fun handleOnBackPressed() {
+                    navController.backToTabRoot(MobileTabs.LIVE)
+                }
+            }
+        } else {
+            null
+        }
+        callback?.let(dispatcher::addCallback)
+        onDispose { callback?.remove() }
+    }
+
     if (selectedTab != null) {
         // Alt çubuğun kendi payı `NovaScaffold`'tan gelir; navigasyon çubuğu
         // inset'i yalnız kabuğa eklenir, içeriğe ikinci kez eklenmez.
-        Box(modifier = chromeModifier) {
+        Box(modifier = chromeModifier.touchTabBar(onSelect = navController::openTab)) {
             NovaScaffold(
                 window = window,
                 tabs = Tabs,
@@ -212,7 +244,7 @@ private fun MobileGraph(
                 onOpenPlaylists = { navController.navigate(PlaylistsRoutes.LIST) },
                 onOpenGuide = { navController.navigate(EpgRoutes.of()) },
                 onOpenLibrary = { navController.navigate(LibraryRoutes.ROUTE) },
-                onOpenRecordings = { navController.navigate(RecordingsRoutes.ROUTE) },
+                onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
                 onOpenMultiwall = { navController.navigate(MultiWallRoutes.of(4)) },
                 onOpenSearch = { navController.navigate(SettingsRoutes.SEARCH) },
                 onOpenSettings = { navController.navigate(SettingsRoutes.SETTINGS) },
@@ -245,7 +277,7 @@ private fun MobileGraph(
                 state = state,
                 onSelectDay = viewModel::selectDay,
                 onRefresh = { viewModel.refresh(force = true) },
-                onBack = navController::backToLive,
+                onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
                 onWatchChannel = { channel ->
                     parentalGuard.requestRating(null, channel.name) {
                         navController.navigate(PlayerRoutes.of(channel.id))
@@ -303,7 +335,7 @@ private fun MobileGraph(
                     }
                 },
                 onToggleFavorite = viewModel::toggleFavorite,
-                onBack = navController::backToLive,
+                onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
             )
         }
 
@@ -352,7 +384,7 @@ private fun MobileGraph(
                 onQuery = viewModel::setQuery,
                 onAssign = viewModel::assign,
                 onClear = viewModel::clearPane,
-                onBack = navController::backToLive,
+                onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
             )
         }
 
@@ -375,7 +407,7 @@ private fun MobileGraph(
                 onCancel = viewModel::cancel,
                 onDelete = viewModel::delete,
                 onRefresh = viewModel::refresh,
-                onBack = navController::backToLive,
+                onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
             )
         }
 
@@ -513,7 +545,8 @@ private fun MobileGraph(
                 viewModel = viewModel,
                 sleepMinutes = appearance.sleepMinutes,
                 autoFrameRate = appearance.autoFrameRate,
-                onBack = navController::backToLive,
+                // Oynatıcıyı açan sekmeye dön; ekran geri çağrısı zaten oradaki sekme köküne iner.
+                onBack = { navController.popBackStack() },
             )
         }
 
@@ -592,7 +625,8 @@ private fun MobileGraph(
                 viewModel = viewModel,
                 sleepMinutes = appearance.sleepMinutes,
                 autoFrameRate = appearance.autoFrameRate,
-                onBack = navController::backToLive,
+                // Oynatıcıyı açan sekmeye dön.
+                onBack = { navController.popBackStack() },
             )
         }
 
@@ -664,8 +698,8 @@ private fun MobileGraph(
                 },
                 onProfiles = { navController.navigate(SettingsRoutes.PROFILES) },
                 onSearch = { navController.navigate(SettingsRoutes.SEARCH) },
-                onOpenRecordings = { navController.navigate(RecordingsRoutes.ROUTE) },
-                onBack = navController::backToLive,
+                onOpenRecordings = { navController.openTab(MobileTabs.RECORDINGS) },
+                onBack = { navController.backToTabRoot(MobileTabs.LIVE) },
             )
         }
 
@@ -742,7 +776,11 @@ private fun tabForRoute(route: String?): String? = when (route) {
     else -> null
 }
 
-/** Sekme dokunuşu: hedef zaten üstteyse bir şey yapmaz, yoksa açar. */
+/**
+ * Sekme dokunuşu: standart alt gezinti deseni. Yığın her zaman
+ * `[Canlı, geçerli sekme]`; sekme durumu `saveState` ile korunup
+ * `restoreState` ile geri gelir. Hedef zaten üstteyse bir şey yapılmaz.
+ */
 private fun NavHostController.openTab(key: String) {
     val destination = when (key) {
         MobileTabs.LIVE -> Routes.LIVE
@@ -752,13 +790,53 @@ private fun NavHostController.openTab(key: String) {
         else -> SettingsRoutes.SETTINGS
     }
     if (currentDestination?.route == destination) return
-    navigate(destination) { launchSingleTop = true }
+    navigate(destination) {
+        popUpTo(Routes.LIVE) { saveState = true }
+        launchSingleTop = true
+        restoreState = true
+    }
 }
 
-/** Ekranların "geri" davranışı: yığın bitince Canlı'ya döner. */
-private fun NavHostController.backToLive() {
-    if (!popBackStack()) navigate(Routes.LIVE)
+/**
+ * Kök ekranın "Canlı" düğmesi: Canlı'nın üstündeki her şeyi (sekme kökü
+ * dahil) kapatır ve Canlı'ya döner. Kök ekran asla yığından düşmez.
+ */
+private fun NavHostController.backToTabRoot(key: String) {
+    val root = when (key) {
+        MobileTabs.LIVE -> Routes.LIVE
+        else -> return
+    }
+    popBackStack(root, false)
 }
+
+/**
+ * Telefonda alt çubuğun dokunma karşılığı.
+ *
+ * `NovaScaffold`'un sekme yüzeyi TV'nin odak diliyle çizilir; tv-material
+ * 1.1.0'da `tvClickable` yalnız D-pad/Enter ve odak işler, işaretçi (dokunma)
+ * işlemez. TV'de doğru olan bu davranış telefonda çubuğu dokunmaya kapatıyor.
+ * Paylaşılan kabuğu değiştirmeden (TV davranışı aynı kalır) kabuğun alt
+ * şeridini telefon tarafında yakalayıp sekme dokunuşunu burada çözüyoruz.
+ *
+ * Şerit yüksekliği `NovaScaffold`'un `BottomBarHeight`'ı ile aynıdır; ray
+ * (geniş pencere) TV'ye kaldığı için dokunma yalnız alt çubukta çözülür.
+ */
+private fun Modifier.touchTabBar(onSelect: (String) -> Unit): Modifier = pointerInput(Tabs) {
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val barTop = size.height - BottomBarTouchHeight.toPx()
+        if (down.position.y < barTop) return@awaitEachGesture
+        val up = waitForUpOrCancellation() ?: return@awaitEachGesture
+        if (up.position.y < barTop) return@awaitEachGesture
+        val slot = (up.position.x / (size.width / Tabs.size.coerceAtLeast(1)))
+            .toInt()
+            .coerceIn(0, Tabs.lastIndex)
+        onSelect(Tabs[slot].key)
+    }
+}
+
+/** `NovaScaffold.BottomBarHeight` (64 dp) ile aynı kalmalı. */
+private val BottomBarTouchHeight = 64.dp
 
 @Composable
 private fun rememberPlayerController(): PlaybackController {
